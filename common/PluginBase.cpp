@@ -5,7 +5,6 @@ PluginBase::PluginBase()
 	LOG_FUNCTION;
 }
 
-
 void PluginBase::connect(PluginBase *pNextPluginBase) {
 	LOG_FUNCTION;
 	assert(pNextPluginBase);

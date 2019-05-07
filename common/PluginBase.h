@@ -4,6 +4,8 @@
 
 #define LOG_FUNCTION printf("%s\n", __FUNCTION__);
 
+//#define LIB
+
 class PluginBase
 {
 public:
