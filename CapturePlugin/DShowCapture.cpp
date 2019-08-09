@@ -4,13 +4,14 @@
 #include <amvideo.h>
 #include "DShowHelper.h"
 #include "PinHelper.h"
-
+#include "../common/Logger.h"
 #pragma comment(lib, "Strmiids.lib")
 #pragma comment(lib,"Quartz.lib")
 
-#define CHECK_HR(s, text) if (FAILED(s)) {printf("%s\n", text);return -1;} 
-#define CHECK_HR_EX(s, text) if (FAILED(s)) {printf("%s\n", text);return NULL;}
+#define CHECK_HR(s, text) if (FAILED(s)) {LogE("%s\n", text);return -1;} 
+#define CHECK_HR_EX(s, text) if (FAILED(s)) {LogE("%s\n", text);return NULL;}
 
+#include "../common/PluginBase.h"
 
 DShowCapture::DShowCapture(CaptureType type, MediaDataCallbackBase *pMediaDataCallback) {
     m_captureType = type;
@@ -20,13 +21,13 @@ DShowCapture::DShowCapture(CaptureType type, MediaDataCallbackBase *pMediaDataCa
 int DShowCapture::Run() {
     HRESULT hr = BuildGraph();
     if (!SUCCEEDED(hr)) {
-        printf("error: start BuildGraph %ld\n", hr);
+        LogE("error: start BuildGraph %ld\n", hr);
         return -1;
     }
 
     hr = m_pGraph->QueryInterface(&m_mediaControl);
     if (!SUCCEEDED(hr)) {
-        printf("error: start QueryInterface %ld\n", hr);
+        LogE("error: start QueryInterface %ld\n", hr);
         return -1;
     }
 
@@ -35,7 +36,7 @@ int DShowCapture::Run() {
         return 0;
     }
 
-    printf("error: start run %ld\n", hr);
+    LogE("error: start run %ld\n", hr);
     return -1;
 }
 
@@ -65,7 +66,7 @@ int DShowCapture::Stop() {
 HRESULT DShowCapture::BuildGraph() {
     HRESULT hr = m_pGraph.CoCreateInstance(CLSID_FilterGraph);
     CHECK_HR(hr, "create filter graph error");
-    printf("Building graph...\n");
+    LogI("Building graph...\n");
 
     if (!m_pGraph) {
         hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER,
@@ -207,7 +208,7 @@ CComPtr<IBaseFilter> DShowCapture::GetFirstDevice(const IID &clsidDeviceClass) {
             hr = pPropBag->Read(L"FriendlyName", &varName, 0);
         }
 
-        printf("=======%s\n", varName.bstrVal);
+        LogI("=======%s\n", varName.bstrVal);
         pPropBag->Release();
         pMoniker->Release();
         break;

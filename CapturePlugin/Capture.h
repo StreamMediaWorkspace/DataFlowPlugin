@@ -6,8 +6,6 @@
 
 #define CAPTURE_PLUGIN "CapturePlugin"
 
-#define _LIB
-
 class Capture :
 	public OutputPluginBase,
     public MediaDataCallbackBase

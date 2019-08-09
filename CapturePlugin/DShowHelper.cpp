@@ -1,6 +1,8 @@
 #include "DShowHelper.h"
 #include "PinHelper.h"
 
+#include "../common/Logger.h"
+
 using namespace DShowHelper;
 
 #define CHECK_HR(s) if (FAILED(s)) {return -1;}
@@ -47,7 +49,7 @@ int DShowHelper::EnumCaps(CComPtr<IBaseFilter> pSrc, CComPtr<ICaptureGraphBuilde
         AM_MEDIA_TYPE *pmt;
         pSCC = new BYTE[iSize];
         if (pSCC == NULL) {
-            printf("error");
+            LogE("error");
             return -1;
         }
         //遍历
@@ -57,7 +59,7 @@ int DShowHelper::EnumCaps(CComPtr<IBaseFilter> pSrc, CComPtr<ICaptureGraphBuilde
             CHECK_HR(pConfig->GetStreamCaps(i, &pmt, pSCC));	//获取信息
             mediaSubtypeToText(pmt->subtype, sz, sizeof(sz));
             //形成信息字符串，用于打印显示
-            printf("Cap index: %d \r\nMinOutputSize: %ld*%ld \r\nMaxOutputSize: %ld*%ld \r\nMinCroppingSize: %ld*%ld\r\nMaxCroppingSize: %ld*%ld\r\n majortype:%ld\r\nsubtype:",
+            LogI("Cap index: %d \r\nMinOutputSize: %ld*%ld \r\nMaxOutputSize: %ld*%ld \r\nMinCroppingSize: %ld*%ld\r\nMaxCroppingSize: %ld*%ld\r\n majortype:%ld\r\nsubtype:",
                 i,
                 ((VIDEO_STREAM_CONFIG_CAPS*)pSCC)->MinOutputSize.cx,
                 ((VIDEO_STREAM_CONFIG_CAPS*)pSCC)->MinOutputSize.cy,
@@ -68,7 +70,7 @@ int DShowHelper::EnumCaps(CComPtr<IBaseFilter> pSrc, CComPtr<ICaptureGraphBuilde
                 ((VIDEO_STREAM_CONFIG_CAPS*)pSCC)->MaxCroppingSize.cx,
                 ((VIDEO_STREAM_CONFIG_CAPS*)pSCC)->MaxCroppingSize.cy,
                 pmt->majortype);
-            printf("%s\r\n", sz);
+            LogI("%s\r\n", sz);
            // DeleteMediaType(pmt);	//删除=============
         }
 
@@ -221,11 +223,11 @@ HRESULT DShowHelper::SetAudioFormat(CComPtr<IBaseFilter> microphonefilter,
 
                         WAVEFORMATEX *wf = (WAVEFORMATEX *)pmt->pbFormat;
 
-                        printf("nAvgBytesPerSec=%d\n", wf->nAvgBytesPerSec);
-                        printf("nBlockAlign=%d\n", wf->nBlockAlign);
-                        printf("nChannels=%d\n", wf->nChannels);
-                        printf("nSamplesPerSec=%d\n", wf->nSamplesPerSec);
-                        printf("wBitsPerSample=%d\n", wf->wBitsPerSample);
+                        LogI("nAvgBytesPerSec=%d\n", wf->nAvgBytesPerSec);
+                        LogI("nBlockAlign=%d\n", wf->nBlockAlign);
+                        LogI("nChannels=%d\n", wf->nChannels);
+                        LogI("nSamplesPerSec=%d\n", wf->nSamplesPerSec);
+                        LogI("wBitsPerSample=%d\n", wf->wBitsPerSample);
 
                         // setting additional audio parameters   
                         /*wf->nAvgBytesPerSec = dwBytesPerSecond;

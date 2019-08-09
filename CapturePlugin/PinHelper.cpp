@@ -1,4 +1,5 @@
 #include "PinHelper.h"
+#include "../common/logger.h"
 
 BOOL hrcheck(HRESULT hr, TCHAR* errtext) {
     if (hr >= S_OK)
@@ -6,10 +7,12 @@ BOOL hrcheck(HRESULT hr, TCHAR* errtext) {
 
     TCHAR szErr[MAX_ERROR_TEXT_LEN];
     DWORD res = AMGetErrorText(hr, szErr, MAX_ERROR_TEXT_LEN);
-    if (res)
-        printf("Error %x: %s\n%s\n", hr, errtext, szErr);
-    else
-        printf("Error %x: %s\n", hr, errtext);
+    if (res) {
+        LogE("Error %x: %s\n%s\n", hr, errtext, szErr);
+    }
+    else {
+        LogE("Error %x: %s\n", hr, errtext);
+    }
     return TRUE;
 }
 
@@ -33,6 +36,6 @@ CComPtr<IPin> PinHelper::GetPin(IBaseFilter *pFilter, LPCOLESTR pinname)
             return pPin;
         pPin.Release();
     }
-    printf("Pin not found!\n");
+    LogE("Pin not found!\n");
     return NULL;
 }

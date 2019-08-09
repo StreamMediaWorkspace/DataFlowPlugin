@@ -2,9 +2,7 @@
 #include <vector>
 #include <assert.h>
 
-#define LOG_FUNCTION printf("%s\n", __FUNCTION__);
-
-//#define LIB
+#define _LIB
 
 class PluginBase
 {
