@@ -1,28 +1,36 @@
 #pragma once
+
 #include "../common/PluginBase.h"
+#include "DShowCapture.h"
+#include <memory>
+
 #define CAPTURE_PLUGIN "CapturePlugin"
+
+#define _LIB
+
 class Capture :
-	public OutputPluginBase
+	public OutputPluginBase,
+    public MediaDataCallbackBase
 {
 public:
-	Capture();
+    Capture();
 	~Capture();
 
-	virtual const char* getName(){
+	virtual const char* GetName(){
 		return "capture";
 	}
 
-	virtual const char* getVersion(){
+	virtual const char* GetVersion(){
 		return "1.0.0.0";
 	}
 
-	virtual int start() {
-		LOG_FUNCTION;
-		std::string s = "hello world";
-		OutputPluginBase::output(s.c_str(), s.length());
+    virtual int Start();
 
-		return 0;
-	}
+    virtual void OnVideoData(void *data, int length);
+    virtual void OnAudioData(void *data, int length);
+
+private:
+    std::shared_ptr<DShowCapture> m_pVideoCapture;
 };
 
 #ifndef CAPTURE_DLL_EXPORTS
@@ -32,7 +40,7 @@ public:
 #define CAPTURE_DLL_API __declspec(dllimport)
 #endif
 
-extern "C" CAPTURE_DLL_API OutputPluginBase* getCaptureInstance();
+extern "C" CAPTURE_DLL_API OutputPluginBase* GetCaptureInstance();
 
 #ifndef _LIB
 #ifdef _WIN32

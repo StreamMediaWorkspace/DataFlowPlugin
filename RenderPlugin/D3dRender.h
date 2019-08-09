@@ -8,15 +8,15 @@ public:
 	D3dRender();
 	~D3dRender();
 
-	virtual const char* getName(){
+	virtual const char* GetName(){
 		return "D3Drender";
 	}
 
-	virtual const char* getVersion(){
+	virtual const char* GetVersion(){
 		return "1.0.0.0";
 	}
 
-	virtual void input(const void *data, int len);
+	virtual void Input(const void *data, int len);
 };
 
 #ifndef D3DRENDER_DLL_EXPORTS
@@ -26,7 +26,7 @@ public:
 #define D3DRENDER_DLL_API __declspec(dllimport)
 #endif
 
-extern "C" D3DRENDER_DLL_API InputPluginBase* getD3dRenderInstance();
+extern "C" D3DRENDER_DLL_API InputPluginBase* GetD3dRenderInstance();
 
 #ifndef _LIB
 #ifdef _WIN32

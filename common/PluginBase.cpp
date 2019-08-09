@@ -5,10 +5,10 @@ PluginBase::PluginBase()
 	LOG_FUNCTION;
 }
 
-void PluginBase::connect(PluginBase *pNextPluginBase) {
+void PluginBase::Connect(PluginBase *pNextPluginBase) {
 	LOG_FUNCTION;
 	assert(pNextPluginBase);
-	printf("%s->%s\n", getName(), pNextPluginBase->getName());
+	printf("%s->%s\n", GetName(), pNextPluginBase->GetName());
 	m_nextPluginVector.push_back(pNextPluginBase);
 }
 
@@ -26,22 +26,21 @@ OutputPluginBase::~OutputPluginBase() {
 	LOG_FUNCTION;
 }
 
-void OutputPluginBase::connect(InputPluginBase *pNextInputPlugin) {
+void OutputPluginBase::Connect(InputPluginBase *pNextInputPlugin) {
 	LOG_FUNCTION;
-	PluginBase::connect((PluginBase*)pNextInputPlugin);
+	PluginBase::Connect((PluginBase*)pNextInputPlugin);
 }
 
-void OutputPluginBase::output(const void * data, int len) {
+void OutputPluginBase::Output(const void * data, int len) {
 	LOG_FUNCTION;
 	for (int i = 0; i < (int)m_nextPluginVector.size(); i++){
 		InputPluginBase *pInputPluginBase = (InputPluginBase*)m_nextPluginVector[i];
 		assert(pInputPluginBase);
-		pInputPluginBase->input(data, len);
+		pInputPluginBase->Input(data, len);
 	}
 }
 
-
-void InputPluginBase::connect(InputPluginBase *pNextOutputPlugin) {
+void InputPluginBase::Connect(InputPluginBase *pNextOutputPlugin) {
 	LOG_FUNCTION;
-	PluginBase::connect((PluginBase*)pNextOutputPlugin);
+	PluginBase::Connect((PluginBase*)pNextOutputPlugin);
 }

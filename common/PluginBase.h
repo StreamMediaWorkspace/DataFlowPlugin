@@ -12,11 +12,11 @@ public:
 	PluginBase();
 	~PluginBase();
 	
-	virtual const char* getName() = 0;
-	virtual const char* getVersion() = 0;
+	virtual const char* GetName() = 0;
+	virtual const char* GetVersion() = 0;
 
 protected:
-	virtual void connect(PluginBase *pNextPlugin);
+	virtual void Connect(PluginBase *pNextPlugin);
 
 protected:
 	std::vector<PluginBase *> m_nextPluginVector;
@@ -27,19 +27,19 @@ class OutputPluginBase : public PluginBase{
 public:
 	OutputPluginBase();
 	~OutputPluginBase();
-	virtual void connect(InputPluginBase *pNextInputPlugin);
+	virtual void Connect(InputPluginBase *pNextInputPlugin);
 
-	virtual int start() = 0;// 自己实现开始，并调用output将数据输出给下一个InputPluginBase
+	virtual int Start() = 0;// 自己实现开始，并调用output将数据输出给下一个InputPluginBase
 
 protected:
-	void output(const void * data, int len);
+	void Output(const void * data, int len);
 };
 
 class InputPluginBase : public PluginBase {
 public:
 	InputPluginBase(){}
 	~InputPluginBase(){}
-	virtual void connect(InputPluginBase *pNextOutputPlugin);
+	virtual void Connect(InputPluginBase *pNextOutputPlugin);
 
-	virtual void input(const void * data, int len) = 0;// 自己实现数据处理
+	virtual void Input(const void * data, int len) = 0;// 自己实现数据处理
 };
