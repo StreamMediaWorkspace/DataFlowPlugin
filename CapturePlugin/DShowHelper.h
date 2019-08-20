@@ -18,5 +18,7 @@ namespace DShowHelper
         DWORD samsPerSec,
         WORD bitsPerSam,
         WORD channels);
+
+    HRESULT SetVideoFomat(int width, int height, int fps, CComPtr<IBaseFilter> pCameraSrc);
 };
 

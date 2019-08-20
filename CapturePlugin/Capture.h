@@ -5,6 +5,10 @@
 #include <memory>
 
 #define CAPTURE_PLUGIN "CapturePlugin"
+#define CAPTURE_PLUGIN_VERSION "1.0.0.0"
+#define CAPTURE_PLUGIN_KEY_WIDTH "width"
+#define CAPTURE_PLUGIN_KEY_HEIGHT "height"
+#define CAPTURE_PLUGIN_KEY_FPS "fps"
 
 class Capture :
 	public OutputPluginBase,
@@ -15,11 +19,11 @@ public:
 	~Capture();
 
 	virtual const char* GetName(){
-		return "capture";
+		return CAPTURE_PLUGIN;
 	}
 
 	virtual const char* GetVersion(){
-		return "1.0.0.0";
+		return CAPTURE_PLUGIN_VERSION;
 	}
 
     virtual int Start();
@@ -27,8 +31,14 @@ public:
     virtual void OnVideoData(void *data, int length);
     virtual void OnAudioData(void *data, int length);
 
+    virtual int Control(MetaData metaData);
+
 private:
     std::shared_ptr<DShowCapture> m_pVideoCapture;
+
+    int m_width = -1;
+    int m_height = -1;
+    int m_fps = -1;
 };
 
 #ifndef CAPTURE_DLL_EXPORTS

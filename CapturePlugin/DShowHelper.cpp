@@ -85,6 +85,34 @@ int DShowHelper::EnumCaps(CComPtr<IBaseFilter> pSrc, CComPtr<ICaptureGraphBuilde
     return 0;
 }
 
+HRESULT DShowHelper::SetVideoFomat(int width, int height, int fps, CComPtr<IBaseFilter> pCameraSrc) {
+    if (!pCameraSrc) {
+        return -1;
+    }
+
+    AM_MEDIA_TYPE pmt;
+    ZeroMemory(&pmt, sizeof(AM_MEDIA_TYPE));
+    pmt.majortype = MEDIATYPE_Video;
+    pmt.subtype = MEDIASUBTYPE_YUY2;
+    pmt.formattype = FORMAT_VideoInfo;
+    pmt.bFixedSizeSamples = TRUE;
+    pmt.cbFormat = 88;
+    pmt.lSampleSize = 614400;
+    pmt.bTemporalCompression = FALSE;
+    VIDEOINFOHEADER format;
+    ZeroMemory(&format, sizeof(VIDEOINFOHEADER));
+    format.bmiHeader.biSize = 40;
+    format.bmiHeader.biWidth = width;
+    format.bmiHeader.biHeight = height;
+    format.bmiHeader.biPlanes = 1;
+    format.bmiHeader.biBitCount = 16;
+    format.bmiHeader.biCompression = 844715353;
+    format.bmiHeader.biSizeImage = width*height;
+    pmt.pbFormat = (BYTE*)&format;
+    CComQIPtr<IAMStreamConfig, &IID_IAMStreamConfig> isc(PinHelper::GetPin(pCameraSrc, L"²¶»ñ"));
+    return isc->SetFormat(&pmt);
+}
+
 void mediaSubtypeToText(const GUID guid, char *outText, int putMaxSize) {
     if (guid == MEDIASUBTYPE_RGB32) {
         strcpy_s(outText, putMaxSize, "MEDIASUBTYPE_RGB32");

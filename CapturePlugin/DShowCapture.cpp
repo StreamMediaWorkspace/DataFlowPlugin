@@ -18,6 +18,17 @@ DShowCapture::DShowCapture(CaptureType type, MediaDataCallbackBase *pMediaDataCa
     m_pMediaDataCallback = pMediaDataCallback;
 }
 
+int DShowCapture::SetVideoFomat(int width, int height, int fps) {
+    m_width = width;
+    m_height = height;
+    m_fps = fps;
+
+    if (!m_pSrcFilter) {
+        return -1;
+    }
+    return DShowHelper::SetVideoFomat(width, height, fps, m_pSrcFilter) == S_OK ? 0 : -1;
+}
+
 int DShowCapture::Run() {
     HRESULT hr = BuildGraph();
     if (!SUCCEEDED(hr)) {
@@ -61,6 +72,7 @@ int DShowCapture::Stop() {
     if (SUCCEEDED(hr)) {
         return 0;
     }
+    return -1;
 }
 
 HRESULT DShowCapture::BuildGraph() {
@@ -130,6 +142,17 @@ HRESULT DShowCapture::BuildGraph() {
     ZeroMemory(&mt, sizeof(AM_MEDIA_TYPE));
     mt.majortype = MEDIATYPE_Video;
     mt.subtype = MEDIASUBTYPE_RGB24;
+
+    VIDEOINFOHEADER format;
+    ZeroMemory(&format, sizeof(VIDEOINFOHEADER));
+    format.bmiHeader.biSize = 40;
+    format.bmiHeader.biWidth = m_width;
+    format.bmiHeader.biHeight = m_height;
+    format.bmiHeader.biPlanes = 1;
+    format.bmiHeader.biBitCount = 16;
+    format.bmiHeader.biCompression = 844715353;
+    format.bmiHeader.biSizeImage = m_width * m_height;
+    mt.pbFormat = (BYTE*)&format;
     hr = pSampleGrabberCB->SetMediaType(&mt);
 
     //here we provide our callback:

@@ -17,6 +17,7 @@ public:
     enum CaptureType { euVideo, euAudio };
 
     DShowCapture(CaptureType type, MediaDataCallbackBase *pMediaDataCallback);
+    int SetVideoFomat(int width, int height, int fps);
     ~DShowCapture();
 
     int Run();
@@ -57,5 +58,9 @@ private:
     CaptureType m_captureType;
 
     MediaDataCallbackBase *m_pMediaDataCallback = nullptr;
+
+    int m_width = -1;
+    int m_height = -1;
+    int m_fps = -1;
 };
 

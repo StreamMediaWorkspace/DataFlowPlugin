@@ -9,7 +9,7 @@ public:
 	~D3dRender();
 
 	virtual const char* GetName(){
-		return "D3Drender";
+		return RENDER_PLUGIN;
 	}
 
 	virtual const char* GetVersion(){

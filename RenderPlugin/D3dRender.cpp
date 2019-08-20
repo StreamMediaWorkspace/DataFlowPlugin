@@ -7,7 +7,7 @@ D3dRender::D3dRender()
 
 
 void D3dRender::Input(const void *data, int len){
-	LogI("%s\n", (char*)data);
+	LogI("D3dRender::Input data=%p len=%d\n", data, len);
 }
 
 D3dRender::~D3dRender()
