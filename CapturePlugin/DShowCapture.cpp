@@ -28,20 +28,29 @@ int DShowCapture::SetVideoFomat(int width, int height, int fps) {
     }
     return DShowHelper::SetVideoFomat(width, height, fps, m_pSrcFilter) == S_OK ? 0 : -1;
 }
-
-int DShowCapture::Run() {
+int DShowCapture::Init() {
     HRESULT hr = BuildGraph();
     if (!SUCCEEDED(hr)) {
         LogE("error: start BuildGraph %ld\n", hr);
         return -1;
     }
+    return 0;
+}
 
-    hr = m_pGraph->QueryInterface(&m_mediaControl);
+int DShowCapture::Run() {
+    if (!m_pGraph) {
+        return -1;
+    }
+
+    HRESULT hr = m_pGraph->QueryInterface(&m_mediaControl);
     if (!SUCCEEDED(hr)) {
         LogE("error: start QueryInterface %ld\n", hr);
         return -1;
     }
 
+    if (!m_mediaControl) {
+        return -1;
+    }
     hr = m_mediaControl->Run();
     if (SUCCEEDED(hr)) {
         return 0;
@@ -75,6 +84,18 @@ int DShowCapture::Stop() {
     return -1;
 }
 
+bool DShowCapture::GetCameraSupportedResolution(std::list<VideoFormat>& frameRates) {
+    return DShowHelper::GetCameraSupportedResolution(frameRates, m_pSrcFilter);
+}
+
+bool DShowCapture::SetCameraSupportedResolution(int index) {
+    if (!m_pSrcFilter || !m_pBuilder2) {
+        LogE("DShowCapture SetCameraSupportedResolution %p,%p\n", m_pSrcFilter, m_pBuilder2);
+        return false;
+    }
+    return DShowHelper::SetCameraSupportedResolution(index, m_pSrcFilter, m_pBuilder2);
+}
+
 HRESULT DShowCapture::BuildGraph() {
     HRESULT hr = m_pGraph.CoCreateInstance(CLSID_FilterGraph);
     CHECK_HR(hr, "create filter graph error");
@@ -93,14 +114,15 @@ HRESULT DShowCapture::BuildGraph() {
 
     //add USB2.0 Camera
     //CComPtr<IBaseFilter> pUSB20Camera = CreateFilterByName(L"USB2.0 Camera", CLSID_VideoCaptureSources);
+    std::wstring name;
     if (m_captureType == euVideo)
     {
-        m_pSrcFilter = GetFirstDevice(CLSID_VideoInputDeviceCategory);
+        m_pSrcFilter = GetFirstDevice(CLSID_VideoInputDeviceCategory, name);
     } else {
-        m_pSrcFilter = GetFirstDevice(CLSID_AudioInputDeviceCategory);
+        m_pSrcFilter = GetFirstDevice(CLSID_AudioInputDeviceCategory, name);
     }
 
-    hr = m_pGraph->AddFilter(m_pSrcFilter, /*L"USB2.0 Camera"*/L"Integrated Camera");
+    hr = m_pGraph->AddFilter(m_pSrcFilter, name.c_str()/*L"USB2.0 Camera"*//*L"Integrated Camera"*//*L"TTQ_HD_1080P Camera"*/);
     CHECK_HR(hr, "Can't add capture to graph");
 
     /*hr = m_pGraph->AddFilter(m_pMicrophoneSrc, L"mocrophone");
@@ -138,25 +160,47 @@ HRESULT DShowCapture::BuildGraph() {
     CComQIPtr<ISampleGrabber, &IID_ISampleGrabber> pSampleGrabberCB(pSampleGrabber);
 
     //设置视频媒体类型
-    AM_MEDIA_TYPE mt;
-    ZeroMemory(&mt, sizeof(AM_MEDIA_TYPE));
-    mt.majortype = MEDIATYPE_Video;
-    mt.subtype = MEDIASUBTYPE_RGB24;
+//     AM_MEDIA_TYPE mt;
+//     ZeroMemory(&mt, sizeof(AM_MEDIA_TYPE));
+//     mt.majortype = MEDIATYPE_Video;
+//     mt.subtype = MEDIASUBTYPE_RGB24;  //抓取RGB24
+//     mt.formattype = FORMAT_VideoInfo;
+// 
+//     VIDEOINFOHEADER format;
+//     ZeroMemory(&format, sizeof(VIDEOINFOHEADER));
+//     format.bmiHeader.biWidth = m_width;
+//     format.bmiHeader.biHeight = m_height;
+//     mt.pbFormat = (BYTE*)&format;
 
-    VIDEOINFOHEADER format;
-    ZeroMemory(&format, sizeof(VIDEOINFOHEADER));
-    format.bmiHeader.biSize = 40;
-    format.bmiHeader.biWidth = m_width;
-    format.bmiHeader.biHeight = m_height;
-    format.bmiHeader.biPlanes = 1;
-    format.bmiHeader.biBitCount = 16;
-    format.bmiHeader.biCompression = 844715353;
-    format.bmiHeader.biSizeImage = m_width * m_height;
-    mt.pbFormat = (BYTE*)&format;
-    hr = pSampleGrabberCB->SetMediaType(&mt);
+//设置视频分辨率、格式 
+    IAMStreamConfig *pConfig = NULL;
+    m_pBuilder2->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video,
+        m_pSrcFilter, IID_IAMStreamConfig, (void **)&pConfig);
+
+    AM_MEDIA_TYPE *mt = NULL;
+    VIDEO_STREAM_CONFIG_CAPS scc;
+    pConfig->GetStreamCaps(0, &mt, (BYTE*)&scc); //nResolutionIndex就是选择的分辨率序号
+
+    //这里仅以采集源中的两种做例子（YUY2和RGB），一般的摄像头都是支持YUY2的 
+    if (mt->subtype == MEDIASUBTYPE_YUY2) {
+    }
+    else  //如果不是YUY2，则默认为RGB24，需要摄像头支持RGB24，否则只能针对支持的类型做处理
+    {
+        mt->majortype = MEDIATYPE_Video;
+        mt->subtype = MEDIASUBTYPE_RGB24; //RGB24 
+        mt->formattype = FORMAT_VideoInfo;
+
+        pConfig->SetFormat(mt);
+    }
+
+    //是否缓存数据，缓存的话，可以给后面做其他处理，不缓存的话，图像处理就放在回调中
+    pSampleGrabberCB->SetBufferSamples(FALSE);
+    pSampleGrabberCB->SetOneShot(FALSE);
+    hr = pSampleGrabberCB->SetMediaType(mt);
+    CHECK_HR(hr, "Can't add SampleGrabber to graph SetMediaType");
 
     //here we provide our callback:
-    hr = pSampleGrabberCB->SetCallback(this, 0);
+    hr = pSampleGrabberCB->SetCallback(this, 1);
     CHECK_HR(hr, "Can't set callback");
 
     //connect USB2.0 Camera and SampleGrabber
@@ -196,7 +240,7 @@ HRESULT DShowCapture::BuildGraph() {
     return S_OK;
 }
 
-CComPtr<IBaseFilter> DShowCapture::GetFirstDevice(const IID &clsidDeviceClass) {
+CComPtr<IBaseFilter> DShowCapture::GetFirstDevice(const IID &clsidDeviceClass, std::wstring &name) {
     CComPtr<IBaseFilter> src = nullptr;
     ICreateDevEnum *pDevEnum = NULL;
     IEnumMoniker *pClsEnum = NULL;
@@ -230,8 +274,9 @@ CComPtr<IBaseFilter> DShowCapture::GetFirstDevice(const IID &clsidDeviceClass) {
         {
             hr = pPropBag->Read(L"FriendlyName", &varName, 0);
         }
-
+        name = varName.bstrVal;
         LogI("=======%s\n", varName.bstrVal);
+        
         pPropBag->Release();
         pMoniker->Release();
         break;
@@ -246,6 +291,9 @@ CComPtr<IBaseFilter> DShowCapture::GetFirstDevice(const IID &clsidDeviceClass) {
 }
 
 STDMETHODIMP DShowCapture::SampleCB(double SampleTime, IMediaSample *pSample) {
+    return S_OK;
+    
+    SampleTime *= 1000; 
     if (!pSample) {
         return E_POINTER;
     }
@@ -256,25 +304,58 @@ STDMETHODIMP DShowCapture::SampleCB(double SampleTime, IMediaSample *pSample) {
         return E_UNEXPECTED;
     }
 
-    for (int i = 0; i < sz; i += 2) {
-        pBuf[i] = 255 - pBuf[i];
-    }
+//     for (int i = 0; i < sz; i += 2) {
+//         pBuf[i] = 255 - pBuf[i];
+//     }
     //pSample->Release();
 
+    unsigned char *buf = new unsigned char[sz];
+    memcpy(buf, pBuf, sz);
+    static int SampleTime1 = 0;
     if (m_pMediaDataCallback && m_captureType == euVideo) {
-        m_pMediaDataCallback->OnVideoData(pBuf, sz);
+        m_pMediaDataCallback->OnVideoData(new DataBuffer(buf, sz, m_width, m_height, SampleTime1, false));
     } else if (m_pMediaDataCallback && m_captureType == euAudio) {
-        m_pMediaDataCallback->OnAudioData(pBuf, sz);
+        m_pMediaDataCallback->OnAudioData(new DataBuffer(buf, sz, m_width, m_height, SampleTime1, false));
     }
+    SampleTime1++;
     return S_OK;
 }
 
 STDMETHODIMP DShowCapture::BufferCB(double SampleTime, BYTE *pBuffer, long BufferLen) {//声音
-                                                                                  //fwrite(pBuffer, BufferLen, sizeof(BYTE), m_file);
+//     FILE *f1 = NULL;
+//     fopen_s(&f1, "./test1.yuy2", "wb");
+//     fwrite(pBuffer, BufferLen, 1, f1);
+//     fclose(f1);
+//     return S_OK;
+
+
+    SampleTime *= 1000;
+    LogI("SampleTime=%f\n", SampleTime);
+    long sz = BufferLen;
+    unsigned char *buf = new unsigned char[BufferLen];
+    memcpy(buf, pBuffer, BufferLen);
+    if (m_pMediaDataCallback && m_captureType == euVideo) {
+        m_pMediaDataCallback->OnVideoData(new DataBuffer(buf, sz, m_width, m_height, SampleTime, false));
+    }
+    else if (m_pMediaDataCallback && m_captureType == euAudio) {
+        //m_pMediaDataCallback->OnAudioData(new DataBuffer(buf, sz, m_width, m_height, SampleTime, false));
+    }
     return S_OK;
 }
 
+/*For example, suppose that GetStreamCaps returns a 24-bit RGB format, with a frame size of 320 x 240 pixels. You can get this information by examining the major type, subtype, and format block of the media type:
 
+if ((pmtConfig.majortype == MEDIATYPE_Video) &&
+    (pmtConfig.subtype == MEDIASUBTYPE_RGB24) &&
+    (pmtConfig.formattype == FORMAT_VideoInfo) &&
+    (pmtConfig.cbFormat >= sizeof (VIDEOINFOHEADER)) &&
+    (pmtConfig.pbFormat != NULL))
+{
+    VIDEOINFOHEADER *pVih = (VIDEOINFOHEADER*)pmtConfig.pbFormat;
+    // pVih contains the detailed format information.
+    LONG lWidth = pVih->bmiHeader.biWidth;
+    LONG lHeight = pVih->bmiHeader.biHeight;
+}*/
 DShowCapture::~DShowCapture()
 {
 }

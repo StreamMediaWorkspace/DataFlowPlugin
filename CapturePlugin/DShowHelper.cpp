@@ -1,9 +1,9 @@
+
 #include "DShowHelper.h"
 #include "PinHelper.h"
-
 #include "../common/Logger.h"
-
-using namespace DShowHelper;
+#include <dvdmedia.h>
+#include "../common/Utils.h"
 
 #define CHECK_HR(s) if (FAILED(s)) {return -1;}
 void mediaSubtypeToText(const GUID guid, char *outText, int putMaxSize);
@@ -111,6 +111,134 @@ HRESULT DShowHelper::SetVideoFomat(int width, int height, int fps, CComPtr<IBase
     pmt.pbFormat = (BYTE*)&format;
     CComQIPtr<IAMStreamConfig, &IID_IAMStreamConfig> isc(PinHelper::GetPin(pCameraSrc, L"捕获"));
     return isc->SetFormat(&pmt);
+}
+
+bool DShowHelper::GetCameraSupportedResolution(std::list<VideoFormat>& frameRates, CComPtr<IBaseFilter> pCameraSrc) {
+    CComPtr<IPin> outputPin = PinHelper::FindOutputPin(pCameraSrc, MEDIATYPE_Video);
+    if (!outputPin) {
+        return false;
+    }
+
+    CComPtr<IAMStreamConfig> streamCfg;
+    HRESULT hr = outputPin.QueryInterface(&streamCfg);
+    if (S_OK != hr) {
+        LogE("DShowHelper::GetCameraSupportedResolution QueryInterface failed 0x%X\n", hr);
+        return false;
+    }
+
+    AM_MEDIA_TYPE *pmt = NULL;
+    VIDEO_STREAM_CONFIG_CAPS caps;
+    int count, size;
+
+    hr = streamCfg->GetNumberOfCapabilities(&count, &size);
+    if (S_OK != hr) {
+        LogE("DShowHelper::GetCameraSupportedResolution GetNumberOfCapabilities failed 0x%X\n", hr);
+        return false;
+    }
+
+    for (int i = 0; i < count; i++) {
+        hr = streamCfg->GetStreamCaps(i, &pmt, (BYTE*)&caps);
+        if (hr != S_OK)
+            continue;
+
+        if (pmt->majortype != MEDIATYPE_Video)
+            continue;
+
+        VideoFormat format;
+        LogI("pmt->subtype.Data1=%s\n", &pmt->subtype.Data1);
+        memcpy(format.fourccName, &pmt->subtype.Data1, 4);
+
+        if (pmt->formattype == FORMAT_VideoInfo)
+        {
+            VIDEOINFOHEADER* h =
+                reinterpret_cast<VIDEOINFOHEADER*> (pmt->pbFormat);
+            VideoFormatCast<VIDEOINFOHEADER*>(format, h);
+            LogI("width:%d, height:%d\n", h->bmiHeader.biWidth, h->bmiHeader.biHeight);
+            
+        }
+        else if (pmt->formattype == FORMAT_VideoInfo2)
+        {
+            VIDEOINFOHEADER2* h =
+                reinterpret_cast<VIDEOINFOHEADER2*> (pmt->pbFormat);
+            VideoFormatCast<VIDEOINFOHEADER2*>(format, h);
+            LogI("width:%d, height:%d\n", h->bmiHeader.biWidth, h->bmiHeader.biHeight);
+        }
+        else if (pmt->formattype == FORMAT_MPEG2Video) {
+            MPEG2VIDEOINFO* h = (MPEG2VIDEOINFO *)pmt->pbFormat;
+            VideoFormatCast<VIDEOINFOHEADER2*>(format, &h->hdr);
+        }
+        else {
+            DeleteMediaType(pmt);
+            continue;
+        }
+
+        //if()
+
+        DeleteMediaType(pmt);
+
+        if (hr == S_OK) {
+            frameRates.push_back(format);
+        }
+    }
+    return true;
+}
+
+bool DShowHelper::SetCameraSupportedResolution(int index, CComPtr<IBaseFilter> pCameraSrc, CComPtr<ICaptureGraphBuilder2> builder2) {
+    //设置视频分辨率、格式
+    HRESULT hr;
+    IAMStreamConfig *pConfig = NULL;
+    hr = builder2->FindInterface(&PIN_CATEGORY_CAPTURE, &MEDIATYPE_Video,
+        pCameraSrc, IID_IAMStreamConfig, (void **)&pConfig);
+    if (FAILED(hr)) {
+        LogE("DShowHelper SetCameraSupportedResolution FindInterface failed %s\n", Utils::HResultToString(hr).c_str());
+        return -1;
+    }
+    AM_MEDIA_TYPE *pmt = NULL;
+    VIDEO_STREAM_CONFIG_CAPS scc;
+    hr = pConfig->GetStreamCaps(index, &pmt, (BYTE*)&scc); //nResolutionIndex就是选择的分辨率序号
+    if (FAILED(hr)) {
+        LogE("DShowHelper SetCameraSupportedResolution GetStreamCaps failed %s\n", Utils::HResultToString(hr).c_str());
+        return -1;
+    }
+    //AM_MEDIA_TYPE * mmt;pConfig->GetFormat(&mmt); getmediatype
+    /*
+    //RGB24
+    pmt->majortype = MEDIATYPE_Video;
+    pmt->subtype = MEDIASUBTYPE_YUY2;// MEDIASUBTYPE_RGB24;  //抓取RGB24//====================
+    pmt->formattype = FORMAT_VideoInfo;
+
+    printf("width:%d", pmt->cbFormat);
+
+    hr = pConfig->SetFormat(pmt);
+    if (FAILED(hr)) {
+        LogE("DShowHelper SetCameraSupportedResolution SetFormat failed %s\n", Utils::HResultToString(hr).c_str());
+        return -1;
+    }*/
+//     m_pGrabberFilter->QueryInterface(IID_ISampleGrabber, (void **)&m_pGrabber);
+//     HRESULT hr = m_pGrabber->SetMediaType(pmt);
+//     if (FAILED(hr))
+//     {
+//         AfxMessageBox(_T("Fail to set media type!"));
+//         return;
+//     }
+    return 0;
+}
+
+bool operator == (const VideoFormat&cThs, const VideoFormat& other) {
+    return cThs.width == other.width &&
+        cThs.height == other.height &&
+        cThs.frameRate == other.frameRate;
+
+}
+
+bool operator < (const VideoFormat&cThs, const VideoFormat& other) {
+    if (cThs.width == other.width)
+    {
+        if (cThs.height == other.height)
+            return  cThs.frameRate < other.frameRate;
+        return cThs.height < other.height;
+    }
+    return cThs.width < other.width;
 }
 
 void mediaSubtypeToText(const GUID guid, char *outText, int putMaxSize) {

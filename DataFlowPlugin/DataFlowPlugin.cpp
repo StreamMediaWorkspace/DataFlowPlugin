@@ -12,16 +12,7 @@
 #pragma comment(lib, "../Debug/EncodePlugin.lib")
 #pragma comment(lib, "../Debug/RtmpPlugin.lib")
 
-OutputPluginBase *GetOutputInstance(const std::string &name) {
-    if (name == CAPTURE_PLUGIN) {
-        return GetCaptureInstance();
-    }
-
-    assert(false);
-    return NULL;
-}
-
-InputPluginBase *GetInputInstance(const std::string &name) {
+PluginBase *GetInstance(const std::string &name) {
     if (name == RENDER_PLUGIN) {
         return GetD3dRenderInstance();
     }
@@ -30,6 +21,8 @@ InputPluginBase *GetInputInstance(const std::string &name) {
     }
     else if (name == ENCODE_PLUGIN) {
         return GetEncodeInstance();
+    } else if (name == CAPTURE_PLUGIN) {
+        return GetCaptureInstance();
     }
     assert(false);
     return NULL;
@@ -38,14 +31,15 @@ InputPluginBase *GetInputInstance(const std::string &name) {
 int _tmain(int argc, _TCHAR* argv[])
 {
     CoInitialize(NULL);
-	OutputPluginBase *capture = GetOutputInstance(CAPTURE_PLUGIN);
-	InputPluginBase *d3dRender = GetInputInstance(RENDER_PLUGIN);
-    TransformPluginBase *encoder = (TransformPluginBase*)GetInputInstance(ENCODE_PLUGIN);
-    InputPluginBase *rtmpSender = GetInputInstance(RTMP_SENDER_PLUGIN);
+    PluginBase *capture = GetInstance(CAPTURE_PLUGIN);
+    PluginBase *d3dRender = GetInstance(RENDER_PLUGIN);
+    PluginBase *encoder = GetInstance(ENCODE_PLUGIN);
+    PluginBase *rtmpSender = GetInstance(RTMP_SENDER_PLUGIN);
 
-    int width = 320;
-    int height = 240;
+    int width = 640;
+    int height = 480;
     int fps = 15;
+    int bitrate = 25000;
 
     capture->Connect(d3dRender);
     capture->Connect(encoder);
@@ -55,6 +49,7 @@ int _tmain(int argc, _TCHAR* argv[])
     madaData.setProperty(CAPTURE_PLUGIN_KEY_WIDTH, width);
     madaData.setProperty(CAPTURE_PLUGIN_KEY_HEIGHT, height);
     madaData.setProperty(CAPTURE_PLUGIN_KEY_FPS, fps);
+    madaData.setProperty(ENCODE_PLUGIN_KEY_BITRATE, bitrate);
     capture->Control(madaData);
 
 	capture->Start();

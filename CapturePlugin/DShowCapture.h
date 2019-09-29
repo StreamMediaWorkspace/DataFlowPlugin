@@ -2,13 +2,14 @@
 #include <atlcomcli.h>
 #include <control.h>
 #include <strmif.h>
-
+#include <list>
 #include <qedit.h>
-
+#include "DShowHelper.h"
+#include "../common/PluginBase.h"
 class MediaDataCallbackBase {
 public:
-    virtual void OnVideoData(void *data, int len) = 0;
-    virtual void OnAudioData(void *data, int len) = 0;
+    virtual void OnVideoData(DataBuffer *pDataBuffer) = 0;
+    virtual void OnAudioData(DataBuffer *pDataBuffer) = 0;
 };
 
 class DShowCapture : public ISampleGrabberCB
@@ -20,12 +21,14 @@ public:
     int SetVideoFomat(int width, int height, int fps);
     ~DShowCapture();
 
+    int Init();
     int Run();
     int Stop();
-    /*摄像头相关start*/
+    bool GetCameraSupportedResolution(std::list<VideoFormat>& frameRates);
+    bool SetCameraSupportedResolution(int index);
 private:
     HRESULT BuildGraph();
-    CComPtr<IBaseFilter> GetFirstDevice(const IID &clsidDeviceClass);
+    CComPtr<IBaseFilter> GetFirstDevice(const IID &clsidDeviceClass, std::wstring &name);
 
     /*数据回调start*/
 private:

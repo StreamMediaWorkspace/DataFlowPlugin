@@ -2,7 +2,7 @@
 #include "../common/PluginBase.h"
 #define RENDER_PLUGIN "RenderPlugin"
 class D3dRender :
-	public InputPluginBase
+	public PluginBase
 {
 public:
 	D3dRender();
@@ -16,7 +16,9 @@ public:
 		return "1.0.0.0";
 	}
 
-	virtual void Input(const void *data, int len);
+    virtual int Start();
+    virtual int Stop();
+	virtual void Input(DataBuffer *pDataBuffer);
 };
 
 #ifndef D3DRENDER_DLL_EXPORTS
@@ -26,7 +28,7 @@ public:
 #define D3DRENDER_DLL_API __declspec(dllimport)
 #endif
 
-extern "C" D3DRENDER_DLL_API InputPluginBase* GetD3dRenderInstance();
+extern "C" D3DRENDER_DLL_API PluginBase* GetD3dRenderInstance();
 
 #ifndef _LIB
 #ifdef _WIN32

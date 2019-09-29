@@ -27,13 +27,19 @@
     <ClInclude Include="EncodePlugin.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="X246Encode.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\common\Logger.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\common\PluginBase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="X264Encoder.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\AmfByteStream.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CYUVTrans.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -44,10 +50,10 @@
     <ClCompile Include="EncodePlugin.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="X246Encode.cpp">
+    <ClCompile Include="X264Encoder.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\common\PluginBase.cpp">
+    <ClCompile Include="CYUVTrans.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -2,8 +2,25 @@
 #include "Logger.h"
 
 
-PluginBase::PluginBase()
-{
+PluginBase::PluginBase() {
+}
+
+int PluginBase::Start() {
+    for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
+        PluginBase *pPluginBase = (PluginBase*)m_nextPluginVector[i];
+        assert(pPluginBase);
+        pPluginBase->Start();
+    }
+    return 0;
+}
+
+int PluginBase::Stop() {
+    for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
+        PluginBase *pPluginBase = (PluginBase*)m_nextPluginVector[i];
+        assert(pPluginBase);
+        pPluginBase->Stop();
+    }
+    return 0;
 }
 
 int PluginBase::Control(MetaData madaData) {
@@ -12,7 +29,7 @@ int PluginBase::Control(MetaData madaData) {
     }
 
     for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
-        InputPluginBase *pInputPluginBase = (InputPluginBase*)m_nextPluginVector[i];
+        PluginBase *pInputPluginBase = (PluginBase*)m_nextPluginVector[i];
         assert(pInputPluginBase);
         pInputPluginBase->Control(madaData);
     }
@@ -25,37 +42,45 @@ void PluginBase::Connect(PluginBase *pNextPluginBase) {
 	m_nextPluginVector.push_back(pNextPluginBase);
 }
 
+void PluginBase::Input(DataBuffer *pdataBuffer) {
+    for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
+        PluginBase *pInputPluginBase = (PluginBase*)m_nextPluginVector[i];
+        assert(pInputPluginBase);
+        pInputPluginBase->Input(pdataBuffer);
+    }
+}
+
 PluginBase::~PluginBase()
 {
 }
 
-
-OutputPluginBase::OutputPluginBase() {
-}
-
-OutputPluginBase::~OutputPluginBase() {
-}
-
-void OutputPluginBase::Connect(InputPluginBase *pNextInputPlugin) {
-	PluginBase::Connect((PluginBase*)pNextInputPlugin);
-}
-
-void OutputPluginBase::Output(const void * data, int len) {
-	for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
-		InputPluginBase *pInputPluginBase = (InputPluginBase*)m_nextPluginVector[i];
-		assert(pInputPluginBase);
-		pInputPluginBase->Input(data, len);
-	}
-}
-
-void InputPluginBase::Connect(InputPluginBase *pNextOutputPlugin) {
-	PluginBase::Connect((PluginBase*)pNextOutputPlugin);
-}
-
-void TransformPluginBase::Output(const void * data, int len) {
-    for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
-        InputPluginBase *pInputPluginBase = (InputPluginBase*)m_nextPluginVector[i];
-        assert(pInputPluginBase);
-        pInputPluginBase->Input(data, len);
-    }
-}
+// 
+// OutputPluginBase::OutputPluginBase() {
+// }
+// 
+// OutputPluginBase::~OutputPluginBase() {
+// }
+// 
+// void OutputPluginBase::Connect(InputPluginBase *pNextInputPlugin) {
+// 	PluginBase::Connect((PluginBase*)pNextInputPlugin);
+// }
+// 
+// void OutputPluginBase::Output(DataBuffer *pDataBuffer) {
+// 	for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
+// 		InputPluginBase *pInputPluginBase = (InputPluginBase*)m_nextPluginVector[i];
+// 		assert(pInputPluginBase);
+// 		pInputPluginBase->Input(pDataBuffer);
+// 	}
+// }
+// 
+// void InputPluginBase::Connect(InputPluginBase *pNextOutputPlugin) {
+// 	PluginBase::Connect((PluginBase*)pNextOutputPlugin);
+// }
+// 
+// void TransformPluginBase::Output(DataBuffer *pDataBuffer) {
+//     for (int i = 0; i < (int)m_nextPluginVector.size(); i++) {
+//         InputPluginBase *pInputPluginBase = (InputPluginBase*)m_nextPluginVector[i];
+//         assert(pInputPluginBase);
+//         InputPluginBase::Input(pDataBuffer);
+//     }
+// }

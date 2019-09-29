@@ -1,4 +1,5 @@
 #include "Capture.h"
+#include <list>
 #include "../common/Logger.h"
 
 Capture::Capture() :
@@ -10,17 +11,47 @@ Capture::~Capture() {
 
 int Capture::Start() {
     m_pVideoCapture = std::make_shared<DShowCapture>(DShowCapture::euVideo, this);
-    return m_pVideoCapture->Run();
-
-    std::string s = "hello world";
+    if (0 != m_pVideoCapture->Init()) {
+        LogE("Capture Start Init failed\n");
+        m_pVideoCapture.reset();
+        return -1;
+    }
+    m_pVideoCapture->SetVideoFomat(m_width, m_height, m_fps);
+    std::list<VideoFormat> frameRates;
+    m_pVideoCapture->GetCameraSupportedResolution(frameRates);
+    //m_pVideoCapture->SetCameraSupportedResolution(0);
+    if (0 == m_pVideoCapture->Run()) {
+        return PluginBase::Start();
+    }
+    return -1;
 }
 
-void Capture::OnVideoData(void *data, int length) {
-    LogI("OnVideoData data=%p\n", data);
-    OutputPluginBase::Output(data, length);
+int Capture::Stop() {
+    int ret = -1;
+    if (m_pVideoCapture) {
+        ret = m_pVideoCapture->Stop();
+    }
+    else {
+        LogE("Capture Stop failed, m_pVideoCapture is null\n");
+    }
+    if (0 == ret) {
+        ret = PluginBase::Start();
+    }
+    return ret;
 }
 
-void Capture::OnAudioData(void *data, int length) {
+void Capture::OnVideoData(DataBuffer *pDataBuffer) {
+    LogI("OnVideoData data lenght=%d\n", pDataBuffer->BufLen());
+
+//     FILE *f1 = NULL;
+//     fopen_s(&f1, "./test2.yuv", "wb");
+//     fwrite(pDataBuffer->Buf(), pDataBuffer->BufLen(), 1, f1);
+//     fclose(f1);
+
+    PluginBase::Input(pDataBuffer);
+}
+
+void Capture::OnAudioData(DataBuffer *pDataBuffer) {
 
 }
 
@@ -43,12 +74,12 @@ int Capture::Control(MetaData metaData) {
         m_pVideoCapture->SetVideoFomat(m_width, m_height, m_fps);
         ret = 0;
     }
-    OutputPluginBase::Control(metaData);
+    PluginBase::Control(metaData);
     return ret;
 }
 
-OutputPluginBase* GetCaptureInstance() {
-	OutputPluginBase* pInstance = new  Capture();
+PluginBase* GetCaptureInstance() {
+    PluginBase* pInstance = new  Capture();
 	return pInstance;
 }
 

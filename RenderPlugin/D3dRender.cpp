@@ -5,17 +5,24 @@ D3dRender::D3dRender()
 {
 }
 
+int D3dRender::Start() {
+    return PluginBase::Start();
+}
 
-void D3dRender::Input(const void *data, int len){
-	LogI("D3dRender::Input data=%p len=%d\n", data, len);
+int D3dRender::Stop() {
+    return PluginBase::Stop();
+}
+
+void D3dRender::Input(DataBuffer *pDataBuffer){
+	LogI("D3dRender::Input data=%p len=%p\n", pDataBuffer->Buf(), pDataBuffer->BufLen());
 }
 
 D3dRender::~D3dRender()
 {
 }
 
-InputPluginBase* GetD3dRenderInstance()
+PluginBase* GetD3dRenderInstance()
 {
-	InputPluginBase* pInstance = new D3dRender();
+    PluginBase* pInstance = new D3dRender();
 	return pInstance;
 }

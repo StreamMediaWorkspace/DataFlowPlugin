@@ -1,17 +1,24 @@
-﻿#include "stdafx.h"
+﻿#include "stdafx.h"
+
 #include "RtmpSender.h"
+#include "../common/AmfByteStream.h"
 #include <time.h>
 #include <stdlib.h>
 
 #pragma comment(lib, "./lib/librtmp.lib")
-#pragma comment(lib,"WS2_32.lib") 
+#pragma comment(lib,"WS2_32.lib") 
+
 RtmpSender::RtmpSender()
 {
     InitSockets();
-}
-int RtmpSender::Connect(const char* url) {
+}
+
+int RtmpSender::Connect(const char* url) {
+
     m_pRtmp = RTMP_Alloc();
-    RTMP_Init(m_pRtmp);
+    RTMP_Init(m_pRtmp);
+
+
     m_pRtmp->Link.timeout = 5;
     if (!RTMP_SetupURL(m_pRtmp, (char*)url))
     {
@@ -39,38 +46,167 @@ int RtmpSender::Connect(const char* url) {
         m_pRtmp = NULL;
         CleanupSockets();
         return -1;
-    }
-    return 0;
-}
-int RtmpSender::SendH264Packet(x264_nal_t *nal) {
+    }
+
+    return 0;
+}
+
+bool RtmpSender::SendMetadataPacket(DataBuffer *pDataBuffer) {
+    return 0;
+    char metadata_buf[1024];
+    char* pbuf = WriteMetadata(metadata_buf, pDataBuffer);
+    return Send(metadata_buf, (int)(pbuf - metadata_buf), FLV_TAG_TYPE_META, pDataBuffer->TimeStamp());
+}
+
+bool RtmpSender::Send(const char* buf, int bufLen, int type, unsigned int timestamp) {
+    int nRtmpResult = RTMP_IsConnected(m_pRtmp);
+    if (nRtmpResult == 0) {
+        return false;
+    }
+    RTMPPacket rtmp_pakt;
+    RTMPPacket_Reset(&rtmp_pakt);
+    RTMPPacket_Alloc(&rtmp_pakt, bufLen);
+
+    rtmp_pakt.m_packetType = type;
+    rtmp_pakt.m_nBodySize = bufLen;
+    rtmp_pakt.m_nTimeStamp = timestamp;
+    rtmp_pakt.m_nChannel = 4;
+    rtmp_pakt.m_headerType = RTMP_PACKET_SIZE_LARGE;
+    rtmp_pakt.m_nInfoField2 = m_pRtmp->m_stream_id;
+    memcpy(rtmp_pakt.m_body, buf, bufLen);
+
+    int retval = RTMP_SendPacket(m_pRtmp, &rtmp_pakt, 0);
+    RTMPPacket_Free(&rtmp_pakt);
+
+    return !!retval;
+}
+
+char* RtmpSender::WriteMetadata(char* buf, DataBuffer *pDataBuffer) {
+    char* pbuf = buf;
+    //第一个包：
+    //第1个字节表示AMF包类型，一般总是0x02，
+    pbuf = UI08ToBytes(pbuf, AMF_DATA_TYPE_STRING);
+    //第2-3个字节为UI16类型值，标识字符串的长度，一般总是0x000A（“onMetaData”长度）。后面字节为具体的字符串，一般总为“onMetaData”（6F,6E,4D,65,74,61,44,61,74,61）
+    pbuf = AmfStringToBytes(pbuf, "onMetaData");
+
+    //第二个AMF包：
+    //第1个字节表示AMF包类型，一般总是0x08，表示数组。
+    pbuf = UI08ToBytes(pbuf, AMF_DATA_TYPE_MIXEDARRAY);
+    //第2-5个字节为UI32类型值，表示数组元素的个数。
+    pbuf = UI32ToBytes(pbuf, 6);
+
+    //后面即为各数组元素的封装，数组元素为元素名称和值组成的对。常见的数组元素如下表所示。
+    /*duration:时长
+    width:视频宽度
+    height:视频高度
+    videodatarate:视频码率
+    framerate:视频帧率
+    videocodecid:视频编码方式
+    audiosamplerate:音频采样率
+    audiosamplesize:音频采样精度
+    stereo:是否为立体声
+    audiocodecid:音频编码方式
+    filesize:文件大小*/
+    pbuf = AmfStringToBytes(pbuf, "width");
+    pbuf = AmfDoubleToBytes(pbuf, pDataBuffer->Width());
+
+    pbuf = AmfStringToBytes(pbuf, "height");
+    pbuf = AmfDoubleToBytes(pbuf, pDataBuffer->Height());
+
+    pbuf = AmfStringToBytes(pbuf, "videodatarate");
+    pbuf = AmfDoubleToBytes(pbuf, 256000);
+
+    pbuf = AmfStringToBytes(pbuf, "framerate");
+    pbuf = AmfDoubleToBytes(pbuf, 20);
+
+    pbuf = AmfStringToBytes(pbuf, "videocodecid");
+    pbuf = AmfDoubleToBytes(pbuf, 0x07);
+// 
+//     if (m_metaAudioIn) {
+//         pbuf = AmfStringToBytes(pbuf, "audiocodecid");
+//         pbuf = AmfDoubleToBytes(pbuf, 0);
+// 
+//         pbuf = AmfStringToBytes(pbuf, "audiodatarate");
+//         pbuf = AmfDoubleToBytes(pbuf, m_metaAudioIn.getAudioBitRate());
+// 
+//         pbuf = AmfStringToBytes(pbuf, "audiosamplerate");
+//         pbuf = AmfDoubleToBytes(pbuf, m_metaAudioIn.getAudioSampleRate());
+// 
+//         pbuf = AmfStringToBytes(pbuf, "audiochannel");
+//         pbuf = AmfDoubleToBytes(pbuf, m_metaAudioIn.getAudioChanel());
+//     }
+    // 0x00 0x00 0x09
+    pbuf = AmfStringToBytes(pbuf, "");
+    pbuf = UI08ToBytes(pbuf, AMF_DATA_TYPE_OBJECT_END);
+
+    return pbuf;
+}
+
+void RtmpSender::SendVideoDataPacket(DataBuffer* dataBuf, bool isKeyframe)
+{
+    int need_buf_size = dataBuf->BufLen() + 9;
+    char* buf = new char[need_buf_size];
+    char* pbuf = buf;
+
+    unsigned char flag = 0;
+    if (isKeyframe)
+        flag = 0x17;
+    else
+        flag = 0x27;
+
+    pbuf = UI08ToBytes(pbuf, flag);
+    pbuf = UI08ToBytes(pbuf, 1);
+    pbuf = UI08ToBytes(pbuf, 0);
+    pbuf = UI08ToBytes(pbuf, 0);    // avc packet type (0, nalu)
+    pbuf = UI08ToBytes(pbuf, 0);    // composition time
+    pbuf = UI32ToBytes(pbuf, dataBuf->BufLen());    // composition time
+
+    memcpy(pbuf, dataBuf->Buf(), dataBuf->BufLen());
+    pbuf += dataBuf->BufLen();
+
+    Send(buf, (int)(pbuf - buf), FLV_TAG_TYPE_VIDEO, dataBuf->TimeStamp());
+    delete []buf;
+}
+
+int RtmpSender::SendH264Packet(x264_nal_t *nal) {return 0;
     if (!nal) {
         return -1;
-    }
-    if (nal->i_type == NAL_SPS) {        m_sps.type = NAL_SPS;        m_sps.data = (uint8_t *)malloc(nal->i_payload - 4);        m_sps.size = nal->i_payload - 4;        memcpy(m_sps.data, nal->p_payload + 4, nal->i_payload - 4);
+    }
+
+    if (nal->i_type == NAL_SPS) {
+        m_sps.type = NAL_SPS;
+        m_sps.data = (uint8_t *)malloc(nal->i_payload - 4);
+        m_sps.size = nal->i_payload - 4;
+        memcpy(m_sps.data, nal->p_payload + 4, nal->i_payload - 4);
         return 0;
-    }    else if (nal->i_type == NAL_PPS) {
+    }
+    else if (nal->i_type == NAL_PPS) {
         m_pps.type = NAL_PPS;
         m_pps.data = (uint8_t *)malloc(nal->i_payload - 4);
         m_pps.size = nal->i_payload - 4;
         memcpy(m_pps.data, nal->p_payload + 4, nal->i_payload - 4);
         return 0;
-    }
+    }
+
     unsigned int size = nal->i_payload;
-    unsigned char *nalData = nal->p_payload;
+    unsigned char *nalData = nal->p_payload;
+
     if (nalData[2] == 0x00) {
         nalData += 4;
         size -= 4;
     } else if (nalData[2] == 0x01) {
         nalData += 3;
         size -= 3;
-    }
+    }
+
     unsigned char *body = (unsigned char*)malloc(size + 9);
     memset(body, 0, size + 9);
     if (nal->i_type == NAL_SLICE_IDR) {
         body[0] = 0x17;
     } else {
         body[0] = 0x27;
-    }
+    }
+
     body[1] = 0x01;
     body[2] = 0x00;
     body[3] = 0x00;
@@ -78,15 +214,18 @@ int RtmpSender::SendH264Packet(x264_nal_t *nal) {
     body[5] = (size >> 24) & 0xff;
     body[6] = (size >> 16) & 0xff;
     body[7] = (size >> 8) & 0xff;
-    body[8] = (size) & 0xff;
+    body[8] = (size) & 0xff;
+
     if (nal->i_type == NAL_SLICE_IDR) {
         SendVideoSpsPps(m_pps.data, m_pps.size, m_sps.data, m_sps.size);
-    }
+    }
+
     memcpy(&body[9], nalData, size);
     int bRet = SendPacket(RTMP_PACKET_TYPE_VIDEO, body, 9 + size, GetTimeStamp());
     free(body);
     return bRet;
-}
+}
+
 /**
 * ·¢ËÍÊÓÆµµÄspsºÍppsÐÅÏ¢
 *
@@ -98,7 +237,7 @@ int RtmpSender::SendH264Packet(x264_nal_t *nal) {
 * @³É¹¦Ôò·µ»Ø 1 , Ê§°ÜÔò·µ»Ø0
 */
 int RtmpSender::SendVideoSpsPps(unsigned char *pps, int pps_len, unsigned char * sps, int sps_len)
-{
+{return 0;
     RTMPPacket * packet = NULL;//rtmp°ü½á¹¹
     unsigned char * body = NULL;
     int i;
@@ -148,8 +287,10 @@ int RtmpSender::SendVideoSpsPps(unsigned char *pps, int pps_len, unsigned char *
     int nRet = RTMP_SendPacket(m_pRtmp, packet, TRUE);
     free(packet);    //ÊÍ·ÅÄÚ´æ
     return nRet;
-}
-int RtmpSender::SendAudioHeader(unsigned long nSampleRate, int nChannel) {
+}
+
+int RtmpSender::SendAudioHeader(unsigned long nSampleRate, int nChannel) {return 0;
+
     RTMPPacket packet;
     RTMPPacket_Reset(&packet);
     RTMPPacket_Alloc(&packet, 4);
@@ -214,10 +355,42 @@ int RtmpSender::SendAudioHeader(unsigned long nSampleRate, int nChannel) {
     int nRet = RTMP_SendPacket(m_pRtmp, &packet, TRUE);
     RTMPPacket_Free(&packet);//ÊÍ·ÅÄÚ´æ
     return nRet;
-}
-// int RtmpSender::SendAacSpec(unsigned char *spec_buf, int spec_len)// {//     RTMPPacket * packet;//     unsigned char * body;//     //ºóÃæµÄAACÊý¾Ý·¢ËÍµÄÊ±ºò£¬Ç°Ãæ7¸ö×Ö½Ú¶¼ÊÇÖ¡Í·Êý¾Ý£¬²»ÓÃ·¢ËÍ£¬°ÑºóÃæµÄÊý¾ÝÓÃRTMP·¢³öÈ¥¾ÍÐÐÁË¡£//     spec_buf += 7;//     spec_len -= 7;  /*spec data³¤¶È,Ò»°ãÊÇ2*/// //     packet = (RTMPPacket *)malloc(RTMP_HEAD_SIZE + spec_len + 2);//     memset(packet, 0, RTMP_HEAD_SIZE);// //     packet->m_body = (char *)packet + RTMP_HEAD_SIZE;//     body = (unsigned char *)packet->m_body;// //     /*AF 00 + AAC RAW data*///     body[0] = 0xAF;//     body[1] = 0x00;//     memcpy(&body[2], spec_buf, spec_len);// //     packet->m_packetType = RTMP_PACKET_TYPE_AUDIO;//     packet->m_nBodySize = spec_len + 2;//     packet->m_nChannel = 0x04;//     packet->m_nTimeStamp = 0;//     packet->m_hasAbsTimestamp = 0;//     packet->m_headerType = RTMP_PACKET_SIZE_LARGE;//     packet->m_nInfoField2 = m_pRtmp->m_stream_id;// //     /*µ÷ÓÃ·¢ËÍ½Ó¿Ú*///     RTMP_SendPacket(m_pRtmp, packet, TRUE);// //     return TRUE;//
+}
+
+// int RtmpSender::SendAacSpec(unsigned char *spec_buf, int spec_len)
+// {
+//     RTMPPacket * packet;
+//     unsigned char * body;
+//     //ºóÃæµÄAACÊý¾Ý·¢ËÍµÄÊ±ºò£¬Ç°Ãæ7¸ö×Ö½Ú¶¼ÊÇÖ¡Í·Êý¾Ý£¬²»ÓÃ·¢ËÍ£¬°ÑºóÃæµÄÊý¾ÝÓÃRTMP·¢³öÈ¥¾ÍÐÐÁË¡£
+//     spec_buf += 7;
+//     spec_len -= 7;  /*spec data³¤¶È,Ò»°ãÊÇ2*/
+// 
+//     packet = (RTMPPacket *)malloc(RTMP_HEAD_SIZE + spec_len + 2);
+//     memset(packet, 0, RTMP_HEAD_SIZE);
+// 
+//     packet->m_body = (char *)packet + RTMP_HEAD_SIZE;
+//     body = (unsigned char *)packet->m_body;
+// 
+//     /*AF 00 + AAC RAW data*/
+//     body[0] = 0xAF;
+//     body[1] = 0x00;
+//     memcpy(&body[2], spec_buf, spec_len);
+// 
+//     packet->m_packetType = RTMP_PACKET_TYPE_AUDIO;
+//     packet->m_nBodySize = spec_len + 2;
+//     packet->m_nChannel = 0x04;
+//     packet->m_nTimeStamp = 0;
+//     packet->m_hasAbsTimestamp = 0;
+//     packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+//     packet->m_nInfoField2 = m_pRtmp->m_stream_id;
+// 
+//     /*µ÷ÓÃ·¢ËÍ½Ó¿Ú*/
+//     RTMP_SendPacket(m_pRtmp, packet, TRUE);
+// 
+//     return TRUE;
+//
 int RtmpSender::SendAccPacket(unsigned long nSampleRate, int nChannel,
-    unsigned char *data, int length) {
+    unsigned char *data, int length) {return 0;
     long timeoffset = 0;
 
     static unsigned long countAudioTime = 0;
@@ -227,7 +400,6 @@ int RtmpSender::SendAccPacket(unsigned long nSampleRate, int nChannel,
     }
     countAudioTime++;
 
-    //rtmp°ü½á¹¹
     int size = length + 2;
     RTMPPacket packet;
     RTMPPacket_Reset(&packet);
@@ -247,30 +419,20 @@ int RtmpSender::SendAccPacket(unsigned long nSampleRate, int nChannel,
     packet.m_nInfoField2 = m_pRtmp->m_stream_id;
     packet.m_nBodySize = size;
 
-    //µ÷ÓÃ·¢ËÍ½Ó¿Ú
     int nRet = RTMP_SendPacket(m_pRtmp, &packet, TRUE);
-    RTMPPacket_Free(&packet);//ÊÍ·ÅÄÚ´æ
+    RTMPPacket_Free(&packet);
     return nRet;
-}
-
-int RtmpSender::Close() {
+}
+
+int RtmpSender::Close() {
     if (m_pRtmp != NULL) {
         RTMP_Close(m_pRtmp);
         RTMP_Free(m_pRtmp);
         m_pRtmp = NULL;
-    }
-    return 0;
-}
-/**
-* ·¢ËÍRTMPÊý¾Ý°ü
-*
-* @param nPacketType Êý¾ÝÀàÐÍ
-* @param data ´æ´¢Êý¾ÝÄÚÈÝ
-* @param size Êý¾Ý´óÐ¡
-* @param nTimestamp µ±Ç°°üµÄÊ±¼ä´Á
-*
-* @³É¹¦Ôò·µ»Ø 1 , Ê§°ÜÔò·µ»ØÒ»¸öÐ¡ÓÚ0µÄÊý
-*/
+    }
+    return 0;
+}
+
 int RtmpSender::SendPacket(unsigned int nPacketType, unsigned char *data, unsigned int size, unsigned int nTimestamp)
 {
     if (!RTMP_IsConnected(m_pRtmp)) {
@@ -279,15 +441,13 @@ int RtmpSender::SendPacket(unsigned int nPacketType, unsigned char *data, unsign
     }
     nTimestamp = GetTimeStamp();
     RTMPPacket* packet;
-    /*·ÖÅä°üÄÚ´æºÍ³õÊ¼»¯,lenÎª°üÌå³¤¶È*/
     packet = (RTMPPacket *)malloc(RTMP_HEAD_SIZE + size);
     memset(packet, 0, RTMP_HEAD_SIZE);
-    /*°üÌåÄÚ´æ*/
     packet->m_body = (char *)packet + RTMP_HEAD_SIZE;
     packet->m_nBodySize = size;
     memcpy(packet->m_body, data, size);
     packet->m_hasAbsTimestamp = 0;
-    packet->m_packetType = nPacketType; /*´Ë´¦ÎªÀàÐÍÓÐÁ½ÖÖÒ»ÖÖÊÇÒôÆµ,Ò»ÖÖÊÇÊÓÆµ*/
+    packet->m_packetType = nPacketType;
     packet->m_nInfoField2 = m_pRtmp->m_stream_id;
     packet->m_nChannel = 0x04;
 
@@ -297,41 +457,78 @@ int RtmpSender::SendPacket(unsigned int nPacketType, unsigned char *data, unsign
         packet->m_headerType = RTMP_PACKET_SIZE_MEDIUM;
     }
     packet->m_nTimeStamp = nTimestamp;
-    /*·¢ËÍ*/
     int nRet = 0;
     if (RTMP_IsConnected(m_pRtmp))
     {
-        nRet = RTMP_SendPacket(m_pRtmp, packet, TRUE); /*TRUEÎª·Å½ø·¢ËÍ¶ÓÁÐ,FALSEÊÇ²»·Å½ø·¢ËÍ¶ÓÁÐ,Ö±½Ó·¢ËÍ*/
+        //nRet = RTMP_SendPacket(m_pRtmp, packet, TRUE);
     }
-    /*ÊÍ·ÅÄÚ´æ*/
     free(packet);
     return nRet;
-}
-int RtmpSender::InitSockets()
-{
+}
+
+int RtmpSender::InitSockets() {
 #ifdef WIN32
     WORD version;
     WSADATA wsaData;
     version = MAKEWORD(2, 2);
     return (WSAStartup(version, &wsaData) == 0);
 #endif
-}
-
+}
+
 void RtmpSender::CleanupSockets()
 {
 #ifdef WIN32
     WSACleanup();
 #endif
-}
-
-RtmpSender::~RtmpSender()
-{
-    CleanupSockets();
-}
-
-time_t RtmpSender::GetTimeStamp()
-{
-    static time_t t0 = GetTickCount();// time(0);
-    return GetTickCount() - t0;
-    return time(0) - t0;
-}
+}
+
+RtmpSender::~RtmpSender() {
+    CleanupSockets();
+}
+
+time_t RtmpSender::GetTimeStamp() {
+    static time_t t0 = GetTickCount();// time(0);
+    return GetTickCount() - t0;
+    return time(0) - t0;
+}
+
+int RtmpSender::SendData(char *data, int size, int timeStamp, bool isMedium) {
+    if (!RTMP_IsConnected(m_pRtmp)) {
+        printf("[RtmpSender] SendPacket not connected\n");
+        return -1;
+    }
+    RTMPPacket* packet;
+    /*分配包内存和初始化,len为包体长度*/
+    packet = (RTMPPacket *)malloc(RTMP_HEAD_SIZE + size);
+    memset(packet, 0, RTMP_HEAD_SIZE);
+    /*包体内存*/
+    packet->m_body = (char *)packet + RTMP_HEAD_SIZE;
+    packet->m_nBodySize = size;
+    memcpy(packet->m_body, data, size);
+    packet->m_hasAbsTimestamp = 0;
+    packet->m_packetType = RTMP_PACKET_TYPE_VIDEO;
+    if (isMedium) {
+        packet->m_headerType = RTMP_PACKET_SIZE_MEDIUM; /*此处为类型有两种一种是音频,一种是视频*/
+    } else {
+        packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+    }
+    packet->m_nInfoField2 = m_pRtmp->m_stream_id;
+    packet->m_nChannel = 0x04;
+
+    //packet->m_headerType = RTMP_PACKET_SIZE_LARGE;
+    //     if (RTMP_PACKET_TYPE_AUDIO == nPacketType && size != 4)
+    //     {
+    //         packet->m_headerType = RTMP_PACKET_SIZE_MEDIUM;
+    //     }
+    packet->m_nTimeStamp = timeStamp;
+    /*发送*/
+    int nRet = 0;
+    if (RTMP_IsConnected(m_pRtmp))
+    {
+        nRet = RTMP_SendPacket(m_pRtmp, packet, TRUE); /*TRUE为放进发送队列,FALSE是不放进发送队列,直接发送*/
+    }
+    /*释放内存*/
+    free(packet);
+    return nRet;
+}
+

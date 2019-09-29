@@ -30,11 +30,11 @@
     <ClInclude Include="DShowCapture.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\Utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\common\PluginBase.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="DShowHelper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -45,6 +45,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="DShowCapture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common\Utils.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

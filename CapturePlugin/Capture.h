@@ -11,7 +11,7 @@
 #define CAPTURE_PLUGIN_KEY_FPS "fps"
 
 class Capture :
-	public OutputPluginBase,
+	public PluginBase,
     public MediaDataCallbackBase
 {
 public:
@@ -27,9 +27,10 @@ public:
 	}
 
     virtual int Start();
+    virtual int Stop();
 
-    virtual void OnVideoData(void *data, int length);
-    virtual void OnAudioData(void *data, int length);
+    virtual void OnVideoData(DataBuffer *pDataBuffer);
+    virtual void OnAudioData(DataBuffer *pDataBuffer);
 
     virtual int Control(MetaData metaData);
 
@@ -48,7 +49,7 @@ private:
 #define CAPTURE_DLL_API __declspec(dllimport)
 #endif
 
-extern "C" CAPTURE_DLL_API OutputPluginBase* GetCaptureInstance();
+extern "C" CAPTURE_DLL_API PluginBase* GetCaptureInstance();
 
 #ifndef _LIB
 #ifdef _WIN32
