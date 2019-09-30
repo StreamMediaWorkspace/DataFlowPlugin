@@ -31,29 +31,12 @@ public:
     int SendData(char *data, int length, int timestamp, bool isMedium);
 
 
-
-    void SendVideoDataPacket(DataBuffer* dataBuf, bool isKeyframe);
-    int SendH264Packet(x264_nal_t *nal);
-    //int SendVideoSpsPps(void *data, int length);
-    //int SendVideoPacket(unsigned int nPacketType, unsigned char *data, unsigned int size, unsigned int nTimestamp);
-    int SendAccPacket(unsigned long nSampleRate, int nChannel, unsigned char *data, int length);
-    int SendAudioHeader(unsigned long nSampleRate, int nChannel);
-    int SendAacSpec(unsigned char *spec_buf, int spec_len);
     bool Send(const char* buf, int bufLen, int type, unsigned int timestamp);
-    bool SendMetadataPacket(DataBuffer *pDataBuffer);
-    char* WriteMetadata(char* buf, DataBuffer *pDataBuffer);
-    bool SendPacket(DataBuffer *pDataBuffer);
-
+    
 private:
     int InitSockets();
     void CleanupSockets();
-    time_t GetTimeStamp();
 
-     int SendVideoSpsPps(unsigned char *pps, int pps_len, unsigned char * sps, int sps_len);
-     
-     int SendPacket(unsigned int nPacketType, unsigned char *data, unsigned int size, unsigned int nTimestamp);
-    NaluUnit m_pps;
-    NaluUnit m_sps;
 private:
     RTMP *m_pRtmp;
 };

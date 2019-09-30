@@ -191,14 +191,14 @@ bool DShowHelper::SetCameraSupportedResolution(int index, CComPtr<IBaseFilter> p
         pCameraSrc, IID_IAMStreamConfig, (void **)&pConfig);
     if (FAILED(hr)) {
         LogE("DShowHelper SetCameraSupportedResolution FindInterface failed %s\n", Utils::HResultToString(hr).c_str());
-        return -1;
+        return false;
     }
     AM_MEDIA_TYPE *pmt = NULL;
     VIDEO_STREAM_CONFIG_CAPS scc;
     hr = pConfig->GetStreamCaps(index, &pmt, (BYTE*)&scc); //nResolutionIndex就是选择的分辨率序号
     if (FAILED(hr)) {
         LogE("DShowHelper SetCameraSupportedResolution GetStreamCaps failed %s\n", Utils::HResultToString(hr).c_str());
-        return -1;
+        return false;
     }
     //AM_MEDIA_TYPE * mmt;pConfig->GetFormat(&mmt); getmediatype
     /*

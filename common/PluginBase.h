@@ -52,54 +52,61 @@ private:
     std::map<std::string, int> m_intProperties;
 };
 
-class DataBuffer
-{
-    enum DataType {euVideoGBK24, euVideoYUY2, euNone};
+class DataBuffer {
 public:
-    DataBuffer(unsigned char* buf, unsigned int bufLen, 
-        unsigned int width, 
-        unsigned int height,
-        long long timeStamp, 
-        bool tag_header, 
-        bool isNeedFree = false)
-    {
+    DataBuffer(unsigned char* buf, 
+        unsigned int bufLen,
+        long long timeStamp) {
         buf_ = buf;
         buf_len_ = bufLen;
-        m_width = width;
-        m_height = height;
-        is_need_free_ = isNeedFree;
         m_timeStamp = timeStamp;
-        m_tag_header = tag_header;
     }
 
-    DataBuffer(const DataBuffer& other)
-    {
+    DataBuffer(const DataBuffer& other) {
         buf_ = other.buf_;
         buf_len_ = other.buf_len_;
-        is_need_free_ = other.is_need_free_;
-        m_width = other.m_width;
-        m_height = other.m_height;
         m_timeStamp = other.m_timeStamp;
-        m_tag_header = other.m_tag_header;
     }
 
-    ~DataBuffer()
-    {
+    virtual unsigned char* Buf() { return buf_; }
+    virtual unsigned int BufLen() { return buf_len_; }
+    virtual long long TimeStamp() { return m_timeStamp; }
+
+    ~DataBuffer() {}
+
+private:
+    unsigned char* buf_;
+    unsigned int buf_len_;
+    long long m_timeStamp;
+};
+
+class VideoDataBuffer : public DataBuffer {
+    enum Type { euVideoGBK24, euVideoYUY2, euNone };
+public:
+    VideoDataBuffer(unsigned char* buf, unsigned int bufLen,
+        unsigned int width, 
+        unsigned int height,
+        long long timeStamp)
+        : DataBuffer(buf, bufLen, timeStamp) {
+        m_width = width;
+        m_height = height;
+    }
+
+    VideoDataBuffer(const VideoDataBuffer& other) 
+        : DataBuffer(other){
+        m_width = other.m_width;
+        m_height = other.m_height;
+    }
+
+    ~VideoDataBuffer() {
 //         if (is_need_free_)
 //         {
 //             delete[] buf_;
 //         }
     }
 
-    virtual unsigned char* Buf() { return buf_; }
-
-    virtual unsigned int BufLen() { return buf_len_; }
-    virtual unsigned int Width() { return m_width; }
-    virtual unsigned int Height() { return m_height; }
-    virtual long long TimeStamp() { return m_timeStamp; }
-    virtual bool TagHeader() {
-        return m_tag_header;
-    }
+    unsigned int Width() { return m_width; }
+    unsigned int Height() { return m_height; }
 
 //     DataBuffer* Clone() {
 //         unsigned char* buf_clone = new unsigned char[buf_len_];
@@ -109,17 +116,28 @@ public:
 //     }
 
 private:
-    unsigned char* buf_;
-    unsigned int buf_len_;
-    bool is_need_free_;
     int m_width;
     int m_height;
-    long long m_timeStamp;
-
-    bool m_tag_header = false;
 };
 
-class X264DataBuffer : public DataBuffer {
+class AudioDataBuffer : public DataBuffer {
+public:
+    AudioDataBuffer(unsigned char* buf,
+        unsigned int bufLen,
+        unsigned int sampleRate,
+        long long timeStamp)
+        : DataBuffer(buf, bufLen, timeStamp) {
+        m_sampleRate = sampleRate;
+    }
+
+    ~AudioDataBuffer() {
+    }
+
+private:
+    unsigned int m_sampleRate;
+};
+
+class X264DataBuffer : public VideoDataBuffer {
 public:
     enum Type { euSPS, euPPS, euBody };
     X264DataBuffer(unsigned char* buf,
@@ -127,9 +145,15 @@ public:
         unsigned int width,
         unsigned int height,
         long long timeStamp, Type type, bool isKeyFrame)
-        : DataBuffer(buf, bufLen, width, height, timeStamp, false) {
+        : VideoDataBuffer(buf, bufLen, width, height, timeStamp) {
         m_type = type;
         m_isKeyFrame = isKeyFrame;
+    }
+
+    X264DataBuffer(const X264DataBuffer& other)
+        : VideoDataBuffer(other) {
+        m_type = other.m_type;
+        m_isKeyFrame = other.m_isKeyFrame;
     }
 
     Type GetType() {

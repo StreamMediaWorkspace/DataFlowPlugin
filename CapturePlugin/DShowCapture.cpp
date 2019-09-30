@@ -304,41 +304,29 @@ STDMETHODIMP DShowCapture::SampleCB(double SampleTime, IMediaSample *pSample) {
         return E_UNEXPECTED;
     }
 
-//     for (int i = 0; i < sz; i += 2) {
-//         pBuf[i] = 255 - pBuf[i];
-//     }
-    //pSample->Release();
-
     unsigned char *buf = new unsigned char[sz];
     memcpy(buf, pBuf, sz);
     static int SampleTime1 = 0;
     if (m_pMediaDataCallback && m_captureType == euVideo) {
-        m_pMediaDataCallback->OnVideoData(new DataBuffer(buf, sz, m_width, m_height, SampleTime1, false));
+        m_pMediaDataCallback->OnVideoData(new VideoDataBuffer(buf, sz, m_width, m_height, SampleTime1));
     } else if (m_pMediaDataCallback && m_captureType == euAudio) {
-        m_pMediaDataCallback->OnAudioData(new DataBuffer(buf, sz, m_width, m_height, SampleTime1, false));
+        //m_pMediaDataCallback->OnAudioData(new AudioDataBuffer(buf, sz, m_width, SampleTime1));
     }
     SampleTime1++;
     return S_OK;
 }
 
 STDMETHODIMP DShowCapture::BufferCB(double SampleTime, BYTE *pBuffer, long BufferLen) {//ÉùÒô
-//     FILE *f1 = NULL;
-//     fopen_s(&f1, "./test1.yuy2", "wb");
-//     fwrite(pBuffer, BufferLen, 1, f1);
-//     fclose(f1);
-//     return S_OK;
-
-
     SampleTime *= 1000;
     LogI("SampleTime=%f\n", SampleTime);
     long sz = BufferLen;
     unsigned char *buf = new unsigned char[BufferLen];
     memcpy(buf, pBuffer, BufferLen);
     if (m_pMediaDataCallback && m_captureType == euVideo) {
-        m_pMediaDataCallback->OnVideoData(new DataBuffer(buf, sz, m_width, m_height, SampleTime, false));
+        m_pMediaDataCallback->OnVideoData(new VideoDataBuffer(buf, sz, m_width, m_height, SampleTime));
     }
     else if (m_pMediaDataCallback && m_captureType == euAudio) {
-        //m_pMediaDataCallback->OnAudioData(new DataBuffer(buf, sz, m_width, m_height, SampleTime, false));
+        m_pMediaDataCallback->OnAudioData(new AudioDataBuffer(buf, sz, m_width, SampleTime));
     }
     return S_OK;
 }

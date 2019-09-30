@@ -5,6 +5,7 @@
 #include "EncodePlugin.h"
 #include "../common/Logger.h"
 #include "CYUVTrans.h"
+#include "../common/Utils.h"
 
 EncodePlugin::EncodePlugin() {
 
@@ -63,14 +64,14 @@ int EncodePlugin::Control(MetaData metaData) {
 
 void EncodePlugin::Loop() {
     unsigned int lastKeyFrameTimestamp = 0;
-    DataBuffer *pDataBuffer = NULL;
+    VideoDataBuffer *pDataBuffer = NULL;
     m_X246Encode.Initialize(m_nWidth, m_nHeight, m_nFps);
     //FILE* infile = NULL;
     //fopen_s(&infile, "./176_144_420planar.yuv", "rb");
 
     while (!m_stop) {
         {
-            pDataBuffer = m_dataBufferQueue.pop();
+            pDataBuffer = dynamic_cast<VideoDataBuffer*>(m_dataBufferQueue.pop());
         }
 
         if (pDataBuffer) {
