@@ -1,7 +1,10 @@
 #pragma once
 
 #include "../common/PluginBase.h"
-#include "DShowCapture.h"
+#include "DShowVideoCapture.h"
+#include "DShowAudioCapture.h"
+#include "DShowCaptureDevice.h"
+
 #include <memory>
 
 #define CAPTURE_PLUGIN "CapturePlugin"
@@ -12,8 +15,7 @@
 
 class Capture :
 	public PluginBase,
-    public MediaDataCallbackBase
-{
+    public MediaDataCallbackBase {
 public:
     Capture();
 	~Capture();
@@ -29,13 +31,14 @@ public:
     virtual int Start();
     virtual int Stop();
 
-    virtual void OnVideoData(DataBuffer *pDataBuffer);
-    virtual void OnAudioData(DataBuffer *pDataBuffer);
+    virtual void OnData(DataBuffer *pDataBuffer);
 
     virtual int Control(MetaData metaData);
 
 private:
-    std::shared_ptr<DShowCapture> m_pVideoCapture;
+    std::shared_ptr<DShowVideoCapture> m_pVideoCapture;
+
+    std::shared_ptr<DShowAudioCapture> m_pAudioCapture;
 
     int m_width = -1;
     int m_height = -1;

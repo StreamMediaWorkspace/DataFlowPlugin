@@ -10,17 +10,36 @@ Capture::~Capture() {
 }
 
 int Capture::Start() {
-    m_pVideoCapture = std::make_shared<DShowCapture>(DShowCapture::euVideo, this);
+    std::map<std::string, std::string> videoDeviceList;
+    DShowCaptureDevice::ListCapDevices(CLSID_VideoInputDeviceCategory, videoDeviceList);
+
+    m_pVideoCapture = std::make_shared<DShowVideoCapture>(this);
+    m_pVideoCapture->SetDevice("@device:pnp:\\\\?\\usb#vid_04f2&pid_b5ab&mi_00#6&b0e92e&0&0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\\global");
+    m_pVideoCapture->SetVideoFormat(m_width, m_height, m_fps);
+
     if (0 != m_pVideoCapture->Init()) {
         LogE("Capture Start Init failed\n");
         m_pVideoCapture.reset();
         return -1;
     }
-    m_pVideoCapture->SetVideoFomat(m_width, m_height, m_fps);
+    
     std::list<VideoFormat> frameRates;
     m_pVideoCapture->GetCameraSupportedResolution(frameRates);
     //m_pVideoCapture->SetCameraSupportedResolution(0);
-    if (0 == m_pVideoCapture->Run()) {
+
+    std::map<std::string, std::string> audioDeviceList;
+    DShowCaptureDevice::ListCapDevices(CLSID_AudioInputDeviceCategory, audioDeviceList);
+    m_pAudioCapture = std::make_shared<DShowAudioCapture>(this);
+    m_pAudioCapture->SetDevice("@device:cm:{33D9A762-90C8-11D0-BD43-00A0C911CE86}\\wave:{AC65F880-46B6-472E-B63B-920D45B501F2}");
+    //m_pAudioCapture->SetAudioFormat(m_width, m_height, m_fps);
+
+    if (0 != m_pAudioCapture->Init()) {
+        LogE("audio Capture Start Init failed\n");
+        m_pAudioCapture.reset();
+        return -1;
+    }
+
+    if (0 == m_pVideoCapture->Start() && 0 == m_pAudioCapture->Start()) {
         return PluginBase::Start();
     }
     return -1;
@@ -40,7 +59,7 @@ int Capture::Stop() {
     return ret;
 }
 
-void Capture::OnVideoData(DataBuffer *pDataBuffer) {
+void Capture::OnData(DataBuffer *pDataBuffer) {
     LogI("OnVideoData data lenght=%d\n", pDataBuffer->BufLen());
 
 //     FILE *f1 = NULL;
@@ -49,10 +68,6 @@ void Capture::OnVideoData(DataBuffer *pDataBuffer) {
 //     fclose(f1);
 
     PluginBase::Input(pDataBuffer);
-}
-
-void Capture::OnAudioData(DataBuffer *pDataBuffer) {
-
 }
 
 int Capture::Control(MetaData metaData) {
@@ -71,7 +86,7 @@ int Capture::Control(MetaData metaData) {
     }
 
     if (m_width > 0 && m_height > 0 && m_fps > 0 && m_pVideoCapture) {
-        m_pVideoCapture->SetVideoFomat(m_width, m_height, m_fps);
+        m_pVideoCapture->SetVideoFormat(m_width, m_height, m_fps);
         ret = 0;
     }
     PluginBase::Control(metaData);

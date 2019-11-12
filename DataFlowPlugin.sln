@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EncodePlugin", "EncodePlugi
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RtmpPlugin", "Rtmpplugin\Rtmpplugin.vcxproj", "{A289FF6D-8FCA-474E-A0E9-2B64C7B59E7E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFaac", "TestFaac\TestFaac.vcxproj", "{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -61,6 +63,14 @@ Global
 		{A289FF6D-8FCA-474E-A0E9-2B64C7B59E7E}.Release|Win32.Build.0 = Release|Win32
 		{A289FF6D-8FCA-474E-A0E9-2B64C7B59E7E}.Release|x64.ActiveCfg = Release|x64
 		{A289FF6D-8FCA-474E-A0E9-2B64C7B59E7E}.Release|x64.Build.0 = Release|x64
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Debug|Win32.ActiveCfg = Debug|Win32
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Debug|Win32.Build.0 = Debug|Win32
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Debug|x64.ActiveCfg = Debug|x64
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Debug|x64.Build.0 = Debug|x64
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Release|Win32.ActiveCfg = Release|Win32
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Release|Win32.Build.0 = Release|Win32
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Release|x64.ActiveCfg = Release|x64
+		{45D6B5EE-D03C-44E1-9D6C-498B7C0EEA68}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

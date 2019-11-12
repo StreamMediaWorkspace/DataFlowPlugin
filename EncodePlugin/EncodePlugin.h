@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #include "../common/PluginBase.h"
 #include "X264Encoder.h"
+#include "FAACEncoder.h"
 
 #define ENCODE_PLUGIN "EncodePlugin"
 #define ENCODE_PLUGIN_KEY_VERSION "1.0.0.0"
@@ -38,12 +39,17 @@ private:
     
 private:
     X264Encoder m_X246Encode;
+    FAACEncoder m_faacEncode;
     std::thread *m_pThread = NULL;
 
     int m_nWidth = -1;
     int m_nHeight = -1;
     int m_nFps = -1;
     int m_nBitrate = -1;
+
+    unsigned int m_sampleRate = 44100;
+    unsigned int m_channels = 2;
+    unsigned int m_bitsPerSample = 16;
 
     DataBufferQueue m_dataBufferQueue;
     bool m_stop = false;
@@ -55,6 +61,8 @@ private:
     int m_ppsLength = 0;
 
     int m_index = 0;
+
+    char *m_accBufferToEncode = nullptr;
 };
 
 #ifndef ENCODE_DLL_EXPORTS

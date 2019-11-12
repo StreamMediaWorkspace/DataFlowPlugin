@@ -32,9 +32,14 @@ private:
 
     void UpdatePPS(char *pps, int ppsSize);
     void UpdateSPS(char *sps, int spsSize);
-    int MetaDataToBuffer(int width, int height, char **outBuffer);
+    int VideoMetaDataToBuffer(int width, int height, char **outBuffer);
     int SpsPpsToBuffer(char **outBuffer);
-    int BodyToBuffer(char *nalData, int size, bool isKeyFrame, char **outBuffer);
+    int VideoBodyToBuffer(char *nalData, int size, bool isKeyFrame, char **outBuffer);
+
+    int AudioMetaDataToBuffer(int rate, int sampleRate, int channel, char **outBuffer);
+    void UpdateAACSequence(char *buffer, int len);
+    int AudioAACSequenceHeaderToBuffer(char **outBUffer);
+    int AudioBodyToBuffer(char *data, int length, char **outBuffer);
 private:
     RtmpSender m_rtmpSender;
     DataBufferQueue m_dataBufferQueue;
@@ -45,6 +50,9 @@ private:
     int m_spsSize = 0;
     char *m_pps = NULL;
     int m_ppsSize = 0;
+
+    char *m_aacSequence = nullptr;
+    int m_aacSequenceSize = 0;
 };
 
 #ifndef RTMP_SENDER_DLL_EXPORTS

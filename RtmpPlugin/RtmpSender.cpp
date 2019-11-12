@@ -1,5 +1,5 @@
 ﻿#include "stdafx.h"
-
+#include "../common/Logger.h"
 #include "RtmpSender.h"
 #include "../common/AmfByteStream.h"
 #include <time.h>
@@ -103,7 +103,8 @@ RtmpSender::~RtmpSender() {
     CleanupSockets();
 }
 
-int RtmpSender::SendData(char *data, int size, int timeStamp, bool isMedium) {
+int RtmpSender::SendVideoData(char *data, int size, int timeStamp, bool isMedium) {
+    LogI("RtmpSender SendVideoData size=%d, timeStamp=%d, isMedium=%d\n", size, timeStamp, isMedium);
     if (!RTMP_IsConnected(m_pRtmp)) {
         printf("[RtmpSender] SendPacket not connected\n");
         return -1;
@@ -134,8 +135,40 @@ int RtmpSender::SendData(char *data, int size, int timeStamp, bool isMedium) {
     packet->m_nTimeStamp = timeStamp;
     /*发送*/
     int nRet = 0;
-    if (RTMP_IsConnected(m_pRtmp))
-    {
+    if (RTMP_IsConnected(m_pRtmp)) {
+        nRet = RTMP_SendPacket(m_pRtmp, packet, TRUE); /*TRUE为放进发送队列,FALSE是不放进发送队列,直接发送*/
+    }
+    /*释放内存*/
+    free(packet);
+    return nRet;
+}
+
+int RtmpSender::SendAudioData(char *data, int size, int timestamp, bool isMedium) {
+    if (!RTMP_IsConnected(m_pRtmp)) {
+        printf("[RtmpSender] SendPacket not connected\n");
+        return -1;
+    }
+    RTMPPacket* packet;
+    /*分配包内存和初始化,len为包体长度*/
+    packet = (RTMPPacket *)malloc(RTMP_HEAD_SIZE + size);
+    memset(packet, 0, RTMP_HEAD_SIZE);
+    /*包体内存*/
+    packet->m_body = (char *)packet + RTMP_HEAD_SIZE;
+    packet->m_nBodySize = size;
+    memcpy(packet->m_body, data, size);
+    packet->m_hasAbsTimestamp = 0;
+    packet->m_packetType = RTMP_PACKET_TYPE_AUDIO;
+    if (!isMedium) {
+        packet->m_headerType = RTMP_PACKET_SIZE_LARGE; /*此处为类型有两种一种是音频,一种是视频*/
+    } else {
+        packet->m_headerType = RTMP_PACKET_SIZE_MEDIUM;
+    }
+    packet->m_nInfoField2 = m_pRtmp->m_stream_id;
+    packet->m_nChannel = 0x05;
+    packet->m_nTimeStamp = timestamp;
+    /*发送*/
+    int nRet = 0;
+    if (RTMP_IsConnected(m_pRtmp)) {
         nRet = RTMP_SendPacket(m_pRtmp, packet, TRUE); /*TRUE为放进发送队列,FALSE是不放进发送队列,直接发送*/
     }
     /*释放内存*/

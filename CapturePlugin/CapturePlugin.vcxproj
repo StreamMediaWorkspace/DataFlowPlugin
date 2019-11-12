@@ -73,14 +73,20 @@
     <ClInclude Include="..\common\PluginBase.h" />
     <ClInclude Include="..\common\Utils.h" />
     <ClInclude Include="Capture.h" />
+    <ClInclude Include="DShowAudioCapture.h" />
     <ClInclude Include="DShowCapture.h" />
+    <ClInclude Include="DShowCaptureDevice.h" />
+    <ClInclude Include="DShowVideoCapture.h" />
     <ClInclude Include="DShowHelper.h" />
     <ClInclude Include="PinHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\Utils.cpp" />
     <ClCompile Include="Capture.cpp" />
+    <ClCompile Include="DShowAudioCapture.cpp" />
     <ClCompile Include="DShowCapture.cpp" />
+    <ClCompile Include="DShowCaptureDevice.cpp" />
+    <ClCompile Include="DShowVideoCapture.cpp" />
     <ClCompile Include="DShowHelper.cpp" />
     <ClCompile Include="PinHelper.cpp" />
   </ItemGroup>

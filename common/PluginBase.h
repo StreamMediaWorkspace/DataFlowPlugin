@@ -54,40 +54,47 @@ private:
 
 class DataBuffer {
 public:
+    enum MediaType {euVideo, euAudio};
     DataBuffer(unsigned char* buf, 
         unsigned int bufLen,
-        long long timeStamp) {
+        long long timeStamp,
+        MediaType mediaType) {
         buf_ = buf;
         buf_len_ = bufLen;
         m_timeStamp = timeStamp;
+        m_mediaType = mediaType;
     }
 
     DataBuffer(const DataBuffer& other) {
         buf_ = other.buf_;
         buf_len_ = other.buf_len_;
         m_timeStamp = other.m_timeStamp;
+        m_mediaType = other.m_mediaType;
     }
 
     virtual unsigned char* Buf() { return buf_; }
     virtual unsigned int BufLen() { return buf_len_; }
     virtual long long TimeStamp() { return m_timeStamp; }
+    virtual MediaType GetMediaType() { return m_mediaType;}
 
-    ~DataBuffer() {}
+    ~DataBuffer() {
+        free(buf_); buf_ = nullptr;
+    }
 
 private:
     unsigned char* buf_;
     unsigned int buf_len_;
     long long m_timeStamp;
+    MediaType m_mediaType;
 };
 
 class VideoDataBuffer : public DataBuffer {
-    enum Type { euVideoGBK24, euVideoYUY2, euNone };
 public:
     VideoDataBuffer(unsigned char* buf, unsigned int bufLen,
         unsigned int width, 
         unsigned int height,
         long long timeStamp)
-        : DataBuffer(buf, bufLen, timeStamp) {
+        : DataBuffer(buf, bufLen, timeStamp, euVideo) {
         m_width = width;
         m_height = height;
     }
@@ -124,27 +131,63 @@ class AudioDataBuffer : public DataBuffer {
 public:
     AudioDataBuffer(unsigned char* buf,
         unsigned int bufLen,
-        unsigned int sampleRate,
+        unsigned int sameplesPerSec, 
+        unsigned int bitsPerSameple, 
+        unsigned int channels,
         long long timeStamp)
-        : DataBuffer(buf, bufLen, timeStamp) {
-        m_sampleRate = sampleRate;
+        : DataBuffer(buf, bufLen, timeStamp, euAudio) {
+        m_sameplesPerSec = sameplesPerSec;
+        m_bitsPersameple = bitsPerSameple;
+        m_channels = channels;
     }
+
+    unsigned int GetSameplesPerSec() { return m_sameplesPerSec; }
+    unsigned int GetBitsPersameple() { return m_bitsPersameple; }
+    unsigned int GetChannels() { return m_channels; }
 
     ~AudioDataBuffer() {
     }
 
 private:
-    unsigned int m_sampleRate;
+    unsigned int m_sameplesPerSec;
+    unsigned int m_bitsPersameple;
+    unsigned int m_channels;
+};
+
+class FaacAudioDataBuffer : public AudioDataBuffer {
+public:
+    enum FaacAudioType { euSpecificInfo, euBody };
+    FaacAudioDataBuffer(unsigned char* buf,
+        unsigned int bufLen,
+        unsigned int sameplesPerSec,
+        unsigned int bitsPerSameple,
+        unsigned int channels,
+        long long timeStamp, 
+        FaacAudioType audioType)
+        :AudioDataBuffer(buf,
+            bufLen,
+            sameplesPerSec,
+            bitsPerSameple,
+            channels,
+            timeStamp) {
+        m_audioType = audioType;
+    }
+    ~FaacAudioDataBuffer() {}
+    FaacAudioType GetFaacAudioType() {
+        return m_audioType;
+    }
+private:
+    FaacAudioType m_audioType;
 };
 
 class X264DataBuffer : public VideoDataBuffer {
 public:
-    enum Type { euSPS, euPPS, euBody };
+    enum VideoType { euSPS, euPPS, euBody };
     X264DataBuffer(unsigned char* buf,
         unsigned int bufLen,
         unsigned int width,
         unsigned int height,
-        long long timeStamp, Type type, bool isKeyFrame)
+        long long timeStamp, VideoType type, bool isKeyFrame)
         : VideoDataBuffer(buf, bufLen, width, height, timeStamp) {
         m_type = type;
         m_isKeyFrame = isKeyFrame;
@@ -156,7 +199,7 @@ public:
         m_isKeyFrame = other.m_isKeyFrame;
     }
 
-    Type GetType() {
+    VideoType GetType() {
         return m_type;
     }
 
@@ -169,7 +212,7 @@ public:
     }
 
 private:
-    Type m_type;
+    VideoType m_type;
     bool m_isKeyFrame = false;
 };
 

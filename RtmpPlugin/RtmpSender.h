@@ -28,8 +28,9 @@ public:
     int Connect(const char *url);
     int Close();
 
-    int SendData(char *data, int length, int timestamp, bool isMedium);
+    int SendVideoData(char *data, int length, int timestamp, bool isMedium);
 
+    int SendAudioData(char *data, int length, int timestamp, bool isMedium);
 
     bool Send(const char* buf, int bufLen, int type, unsigned int timestamp);
     

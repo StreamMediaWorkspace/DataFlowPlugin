@@ -8,32 +8,30 @@
 #include "../common/PluginBase.h"
 class MediaDataCallbackBase {
 public:
-    virtual void OnVideoData(DataBuffer *pDataBuffer) = 0;
-    virtual void OnAudioData(DataBuffer *pDataBuffer) = 0;
+    virtual void OnData(DataBuffer *pDataBuffer) = 0;
 };
 
-class DShowCapture : public ISampleGrabberCB
-{
-public:
-    enum CaptureType { euVideo, euAudio };
+#define CHECK_HR(s, text) if (FAILED(s)) {LogE("%s\n", text);return -1;} 
+#define CHECK_HR_EX(s, text) if (FAILED(s)) {LogE("%s\n", text);return NULL;}
 
-    DShowCapture(CaptureType type, MediaDataCallbackBase *pMediaDataCallback);
-    int SetVideoFomat(int width, int height, int fps);
+class DShowCapture : public ISampleGrabberCB {
+public:
+    DShowCapture(MediaDataCallbackBase *pMediaDataCallback);
     ~DShowCapture();
 
-    int Init();
-    int Run();
-    int Stop();
-    bool GetCameraSupportedResolution(std::list<VideoFormat>& frameRates);
-    bool SetCameraSupportedResolution(int index);
-private:
-    HRESULT BuildGraph();
-    CComPtr<IBaseFilter> GetFirstDevice(const IID &clsidDeviceClass, std::wstring &name);
+    int SetDevice(const std::string &deviceID);
 
-    /*数据回调start*/
+    virtual int Init() = 0;
+    virtual int Start();
+    virtual int Stop();
+
+protected:
+    bool SetCapDevice(const IID& deviceIID, const std::string& comObjID);
+
+    virtual void OnData(double SampleTime, BYTE *pBuffer, long BufferLen) = 0;
+
 private:
-    STDMETHODIMP QueryInterface(REFIID riid, void **ppv)
-    {
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv) {
         if (NULL == ppv) return E_POINTER;
         if (riid == __uuidof(IUnknown)) {
             *ppv = static_cast<IUnknown*>(this);
@@ -48,22 +46,17 @@ private:
     STDMETHODIMP_(ULONG) AddRef() { return S_OK; }
     STDMETHODIMP_(ULONG) Release() { return S_OK; }
 
-    //ISampleGrabberCB
     STDMETHODIMP SampleCB(double SampleTime, IMediaSample *pSample);
     STDMETHODIMP BufferCB(double SampleTime, BYTE *pBuffer, long BufferLen);
-    /*数据回调end*/
 
-private:
+protected:
+    std::string m_deviceID = "";
+    CComPtr<IBaseFilter> m_pDeviceFilter = nullptr;
+
     CComPtr<ICaptureGraphBuilder2> m_pBuilder2 = nullptr;
     CComPtr<IGraphBuilder> m_pGraph = nullptr;
     CComQIPtr<IMediaControl> m_mediaControl = nullptr;
-    CComPtr<IBaseFilter> m_pSrcFilter = nullptr;
-    CaptureType m_captureType;
 
     MediaDataCallbackBase *m_pMediaDataCallback = nullptr;
-
-    int m_width = -1;
-    int m_height = -1;
-    int m_fps = -1;
 };
 

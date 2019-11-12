@@ -27,10 +27,19 @@
     <ClInclude Include="Capture.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\common\Utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DShowVideoCapture.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="DShowCapture.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\common\Utils.h">
+    <ClInclude Include="DShowAudioCapture.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DShowCaptureDevice.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -44,10 +53,19 @@
     <ClCompile Include="Capture.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\common\Utils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DShowVideoCapture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="DShowCapture.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\common\Utils.cpp">
+    <ClCompile Include="DShowAudioCapture.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DShowCaptureDevice.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

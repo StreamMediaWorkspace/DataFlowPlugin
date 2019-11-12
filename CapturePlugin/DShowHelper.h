@@ -19,6 +19,8 @@ struct VideoFormat {
 };
 bool operator==(const VideoFormat& cThs, const VideoFormat& other);
 bool operator<(const VideoFormat& cThs, const VideoFormat& other);
+void _FreeMediaType(AM_MEDIA_TYPE& mt);
+void _DeleteMediaType(AM_MEDIA_TYPE *pmt);
 
 class DShowHelper
 {

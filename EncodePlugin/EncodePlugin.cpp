@@ -64,98 +64,131 @@ int EncodePlugin::Control(MetaData metaData) {
 
 void EncodePlugin::Loop() {
     unsigned int lastKeyFrameTimestamp = 0;
-    VideoDataBuffer *pDataBuffer = NULL;
+    DataBuffer *pDataBuffer = NULL;
     m_X246Encode.Initialize(m_nWidth, m_nHeight, m_nFps);
+
+    m_faacEncode.Init(m_sampleRate, m_channels, m_bitsPerSample);
     //FILE* infile = NULL;
     //fopen_s(&infile, "./176_144_420planar.yuv", "rb");
 
     while (!m_stop) {
         {
-            pDataBuffer = dynamic_cast<VideoDataBuffer*>(m_dataBufferQueue.pop());
+            pDataBuffer = m_dataBufferQueue.pop();
         }
 
-        if (pDataBuffer) {
-            int width = pDataBuffer->Width();
-            int height = pDataBuffer->Height();
-            //SaveRgb2Bmp(pDataBuffer->Buf(), width, height);//RGB24
+        if (pDataBuffer) 
+            if (pDataBuffer->GetMediaType() == DataBuffer::euVideo) {
+                VideoDataBuffer *pVideoDataBuffer = dynamic_cast<VideoDataBuffer*>(pDataBuffer);
 
-            unsigned long yuvimg_size = width * height * 3 / 2;
-            unsigned char* yuvbuf = (unsigned char*)malloc(yuvimg_size);
-            unsigned char* x264buf = NULL;
-            int x264buf_len = yuvimg_size * 100;
+                int width = pVideoDataBuffer->Width();
+                int height = pVideoDataBuffer->Height();
+                //SaveRgb2Bmp(pDataBuffer->Buf(), width, height);//RGB24
 
-            //GBK24
-            //             CYUVTrans::RGB24ToI420((LPBYTE)pDataBuffer->Buf(), (LPBYTE)yuvbuf,
-            //                 yuvimg_size, width, height);
+                unsigned long yuvimg_size = width * height * 3 / 2;
+                unsigned char* yuvbuf = (unsigned char*)malloc(yuvimg_size);
+                unsigned char* x264buf = NULL;
+                int x264buf_len = yuvimg_size * 100;
 
-            FILE *f1 = NULL;
-            fopen_s(&f1, "./test1.yuv", "wb");
-            fwrite(pDataBuffer->Buf(), pDataBuffer->BufLen(), 1, f1);
-            fclose(f1);
+                //GBK24
+                //             CYUVTrans::RGB24ToI420((LPBYTE)pDataBuffer->Buf(), (LPBYTE)yuvbuf,
+                //                 yuvimg_size, width, height);
 
-            //YUY2
-            //              CYUVTrans::YUY2ToI420((LPBYTE)pDataBuffer->Buf(), (LPBYTE)yuvbuf,
-            //                  yuvimg_size, width, height);
-            BOOL ret = CYUVTrans::YUV422To420((LPBYTE)pDataBuffer->Buf(), yuvbuf, yuvbuf + width * height,
-                yuvbuf + width * height + width * height / 4, width, height);
+                FILE *f1 = NULL;
+                fopen_s(&f1, "./test1.yuv", "wb");
+                fwrite(pVideoDataBuffer->Buf(), pVideoDataBuffer->BufLen(), 1, f1);
+                fclose(f1);
 
-            //             static FILE *fp = NULL;
-            //             if (!fp) {
-            //                 fopen_s(&fp, "./test.yuv420", "wb");
-            //             }
-            //             fwrite(yuvbuf, yuvimg_size, 1, fp);
-            //             fflush(fp);
-            bool is_keyframe = false;
-            if (GetTickCount() - lastKeyFrameTimestamp > 5000) {
-                is_keyframe = true;
-            }
-            x264_nal_t *nals = NULL;
-            int nalCount = 0;
-            if (0 != m_X246Encode.Encode((unsigned char*)yuvbuf, pDataBuffer->Width(),
-                pDataBuffer->Height(),
-                nals, nalCount, is_keyframe)) {
-                LogE("GetPPSFromNals failed\n");
-                if (yuvbuf) {
-                    free(yuvbuf);
+                //YUY2
+                //              CYUVTrans::YUY2ToI420((LPBYTE)pDataBuffer->Buf(), (LPBYTE)yuvbuf,
+                //                  yuvimg_size, width, height);
+                BOOL ret = CYUVTrans::YUV422To420((LPBYTE)pVideoDataBuffer->Buf(), yuvbuf, yuvbuf + width * height,
+                    yuvbuf + width * height + width * height / 4, width, height);
+
+                bool is_keyframe = false;
+                if (GetTickCount() - lastKeyFrameTimestamp > 1000) {
+                    is_keyframe = true;
                 }
+                x264_nal_t *nals = NULL;
+                int nalCount = 0;
+                if (0 != m_X246Encode.Encode((unsigned char*)yuvbuf, pVideoDataBuffer->Width(),
+                    pVideoDataBuffer->Height(),
+                    nals, nalCount, is_keyframe)) {
+                    LogE("GetPPSFromNals failed\n");
+                    if (yuvbuf) {
+                        free(yuvbuf);
+                    }
+                    yuvbuf = NULL;
+                    continue;
+                }
+
+                if (is_keyframe) {
+                    lastKeyFrameTimestamp = GetTickCount();
+                    is_keyframe = false;
+                }
+                X264DataBuffer::VideoType type;
+                int size = 0;
+                char *buffer = NULL;
+                for (int i = 0; i < nalCount; i++) {
+                    x264_nal_t *nal = &nals[i];
+                    if (nal->i_type == NAL_SPS) {
+                        size = nal->i_payload - 4;
+                        buffer = (char*)malloc(size);
+                        memcpy(buffer, nal->p_payload + 4, size);
+                        type = X264DataBuffer::euSPS;
+                    } else if (nal->i_type == NAL_PPS) {
+                        size = nal->i_payload - 4;
+                        buffer = (char*)malloc(size);
+                        memcpy(buffer, nal->p_payload + 4, size);
+                        type = X264DataBuffer::euPPS;
+                    } else {
+                        size = nal->i_payload;
+                        buffer = (char*)malloc(size);
+                        memcpy(buffer, nal->p_payload, size);
+                        type = X264DataBuffer::euBody;
+                    }
+                    PluginBase::Input(new X264DataBuffer((unsigned char*)buffer, size, width, height, pVideoDataBuffer->TimeStamp(), type, nal->i_type == NAL_SLICE_IDR));
+                }
+
+                free(yuvbuf);
                 yuvbuf = NULL;
-                continue;
-            }
+                delete pVideoDataBuffer;
+                pVideoDataBuffer = NULL;
+            } else if (pDataBuffer->GetMediaType() == DataBuffer::euAudio) {
+                AudioDataBuffer *pAudioDataBuffer = dynamic_cast<AudioDataBuffer*>(pDataBuffer);
+                if (pAudioDataBuffer) {//ffplay -ar 16000 -channels 1 -f s16le -i xxx.pcm
+                    static FILE *fp = NULL;
+                    if (!fp) {
+                        fopen_s(&fp, "./testAudio.pcm", "wb");
+                    }
+                    fwrite((void*)pAudioDataBuffer->Buf(), pAudioDataBuffer->BufLen(), 1, fp);
+                    fflush(fp);
 
-            if (is_keyframe) {
-                lastKeyFrameTimestamp = GetTickCount();
-                is_keyframe = false;
-            }
-            X264DataBuffer::Type type;
-            int size = 0;
-            char *buffer = NULL;
-            for (int i = 0; i < nalCount; i++) {
-                x264_nal_t *nal = &nals[i];
-                if (nal->i_type == NAL_SPS) {
-                    size = nal->i_payload - 4;
-                    buffer = (char*)malloc(size);
-                    memcpy(buffer, nal->p_payload + 4, size);
-                    type = X264DataBuffer::euSPS;
-                }
-                else if (nal->i_type == NAL_PPS) {
-                    size = nal->i_payload - 4;
-                    buffer = (char*)malloc(size);
-                    memcpy(buffer, nal->p_payload + 4, size);
-                    type = X264DataBuffer::euPPS;
-                }
-                else {
-                    size = nal->i_payload;
-                    buffer = (char*)malloc(size);
-                    memcpy(buffer, nal->p_payload, size);
-                    type = X264DataBuffer::euBody;
-                }
-                PluginBase::Input(new X264DataBuffer((unsigned char*)buffer, size, width, height, pDataBuffer->TimeStamp(), type, nal->i_type == NAL_SLICE_IDR));
-            }
+                    char *bufferAac = nullptr;
+                    int len = m_faacEncode.GetDecoderSpecificInfo(&bufferAac);
+                    PluginBase::Input(new FaacAudioDataBuffer((unsigned char*)bufferAac, len, pAudioDataBuffer->GetSameplesPerSec(), pAudioDataBuffer->GetBitsPersameple(),
+                        pAudioDataBuffer->GetChannels(), pAudioDataBuffer->TimeStamp(), FaacAudioDataBuffer::euSpecificInfo));
 
-            free(yuvbuf);
-            yuvbuf = NULL;
-            delete pDataBuffer;
-            pDataBuffer = NULL;
+                    int size = m_faacEncode.GetMaxInputSamples()*pAudioDataBuffer->GetBitsPersameple() / 8;
+                    if (!m_accBufferToEncode) {
+                        m_accBufferToEncode = (char*)malloc(size);
+                    }
+                    int count = (pAudioDataBuffer->BufLen() / size);
+                    for (int i = 0; i < count; i++) {
+                        memcpy(m_accBufferToEncode, pAudioDataBuffer->Buf() + i * size, size);
+                        unsigned int sample_count = size / (pAudioDataBuffer->GetBitsPersameple() / 8);
+
+                        unsigned int bufferSize = 0;
+                        char *bufferBody = nullptr;
+                        m_faacEncode.Encode((unsigned char*)m_accBufferToEncode, sample_count, (unsigned char**)&bufferBody, bufferSize);
+                        if (bufferSize > 0) {
+                            PluginBase::Input(new FaacAudioDataBuffer((unsigned char*)bufferBody, bufferSize, pAudioDataBuffer->GetSameplesPerSec(), pAudioDataBuffer->GetBitsPersameple(),
+                                pAudioDataBuffer->GetChannels(), pAudioDataBuffer->TimeStamp(), FaacAudioDataBuffer::euBody));
+                        }
+                    }
+                    
+                    free(pAudioDataBuffer);
+                    pAudioDataBuffer = NULL;
+            }
         }
     }
 }
